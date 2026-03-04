@@ -2,6 +2,14 @@
 
 Local Arduino emulator with code editor and visual simulator.
 
+## Support This Project
+
+If you find this project helpful, please consider giving it a star! Your support helps the project grow and motivates continued development.
+
+[![GitHub stars](https://img.shields.io/github/stars/yourusername/wokwi_clon?style=social)](https://github.com/yourusername/wokwi_clon/stargazers)
+
+Every star counts and helps make this project better!
+
 ## Features
 
 - ✅ Code editor with syntax highlighting (Monaco Editor)
@@ -16,11 +24,11 @@ Local Arduino emulator with code editor and visual simulator.
 
 ## Screenshots
 
-<img src="doc/img1.png" alt="Arduino Emulator - Editor and Simulator" width="800"/>
+![Arduino Emulator - Editor and Simulator](doc/img1.png)
 
 *Arduino emulator with Monaco code editor and visual simulator with wokwi-elements*
 
-<img src="doc/img2.png" alt="Arduino Emulator - Component Properties and Wire Editing" width="800"/>
+![Arduino Emulator - Component Properties and Wire Editing](doc/img2.png)
 
 *Interactive component properties dialog and segment-based wire editing*
 

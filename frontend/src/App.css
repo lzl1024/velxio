@@ -22,6 +22,23 @@ body {
   border-bottom: 2px solid #007acc;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title h1 {
+  font-size: 24px;
+  margin-bottom: 5px;
+  color: #007acc;
+}
+
+.header-title p {
+  font-size: 14px;
+  color: #aaa;
+}
+
 .app-header h1 {
   font-size: 24px;
   margin-bottom: 5px;
@@ -31,6 +48,26 @@ body {
 .app-header p {
   font-size: 14px;
   color: #aaa;
+}
+
+.examples-link {
+  padding: 10px 20px;
+  background-color: #007acc;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.examples-link:hover {
+  background-color: #005a9e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
 }
 
 .app-container {

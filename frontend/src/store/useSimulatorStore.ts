@@ -44,12 +44,14 @@ interface SimulatorState {
   removeComponent: (id: string) => void;
   updateComponent: (id: string, updates: Partial<Component>) => void;
   updateComponentState: (id: string, state: boolean) => void;
+  setComponents: (components: Component[]) => void;
 
   // Wire management (Phase 1)
   addWire: (wire: Wire) => void;
   removeWire: (wireId: string) => void;
   updateWire: (wireId: string, updates: Partial<Wire>) => void;
   setSelectedWire: (wireId: string | null) => void;
+  setWires: (wires: Wire[]) => void;
 
   // Wire creation (Phase 2)
   startWireCreation: (endpoint: WireEndpoint) => void;
@@ -220,6 +222,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       }));
     },
 
+    setComponents: (components) => {
+      set({ components });
+    },
+
     // Wire management actions
     addWire: (wire) => {
       set((state) => ({
@@ -244,6 +250,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
     setSelectedWire: (wireId) => {
       set({ selectedWireId: wireId });
+    },
+
+    setWires: (wires) => {
+      set({ wires });
     },
 
     // Wire creation actions (Phase 2)
