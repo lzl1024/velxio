@@ -55,6 +55,9 @@ RUN arduino-cli config init \
 
 WORKDIR /app
 
+# Data directory for persistent SQLite database (mounted as a volume at runtime)
+RUN mkdir -p /app/data
+
 # Install Python backend dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
