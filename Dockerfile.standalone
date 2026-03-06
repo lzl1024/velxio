@@ -1,9 +1,9 @@
 # ---- Stage 1: Build frontend and wokwi-libs ----
-FROM node:20 AS frontend-builder
+FROM node:20-slim AS frontend-builder
 
 WORKDIR /app
 
-# Copy package.json for metadata generation and common dependencies
+# Copy root package.json (metadata/scripts)
 COPY package.json .
 RUN npm install
 
@@ -22,35 +22,34 @@ COPY wokwi-libs/wokwi-elements/ wokwi-libs/wokwi-elements/
 WORKDIR /app/wokwi-libs/wokwi-elements
 RUN npm install && npm run build
 
-# Build frontend and generate metadata
+# Build frontend
 WORKDIR /app
 COPY frontend/ frontend/
 COPY scripts/ scripts/
 WORKDIR /app/frontend
-# Explicitly install frontend dependencies
-RUN npm install
-# Now run the build which includes metadata generation
-RUN npm run build
+RUN npm install && npm run build
 
 
 # ---- Stage 2: Final Production Image ----
 FROM python:3.12-slim
 
-# Install system dependencies, arduino-cli, and nginx
+# Install system dependencies and nginx
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     nginx \
-    && curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh \
-    && mv bin/arduino-cli /usr/local/bin/ \
-    && rm -rf bin \
-    && apt-get purge -y curl \
-    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Initialize arduino-cli and install AVR & RP2040 cores
-RUN arduino-cli core update-index \
+# Install arduino-cli into /usr/local/bin directly (avoids touching /bin)
+RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh \
+    | BINDIR=/usr/local/bin sh
+
+# Initialize arduino-cli config, add RP2040 board manager URL, then install cores
+RUN arduino-cli config init \
+    && arduino-cli config add board_manager.additional_urls \
+       https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json \
+    && arduino-cli core update-index \
     && arduino-cli core install arduino:avr \
     && arduino-cli core install rp2040:rp2040
 
@@ -73,7 +72,6 @@ COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 COPY deploy/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Expose port 80 for the unified web server
 EXPOSE 80
 
 CMD ["/app/entrypoint.sh"]

@@ -22,6 +22,10 @@ const BOTTOM_PANEL_MIN = 80;
 const BOTTOM_PANEL_MAX = 600;
 const BOTTOM_PANEL_DEFAULT = 200;
 
+const EXPLORER_MIN = 120;
+const EXPLORER_MAX = 500;
+const EXPLORER_DEFAULT = 210;
+
 const resizeHandleStyle: React.CSSProperties = {
   height: 5,
   flexShrink: 0,
@@ -42,6 +46,7 @@ export const EditorPage: React.FC = () => {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [explorerOpen, setExplorerOpen] = useState(true);
+  const [explorerWidth, setExplorerWidth] = useState(EXPLORER_DEFAULT);
   const user = useAuthStore((s) => s.user);
 
   const handleSaveClick = useCallback(() => {
@@ -110,6 +115,27 @@ export const EditorPage: React.FC = () => {
     document.addEventListener('mouseup', onUp);
   }, [bottomPanelHeight]);
 
+  const handleExplorerResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = explorerWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      setExplorerWidth(Math.max(EXPLORER_MIN, Math.min(EXPLORER_MAX, startWidth + delta)));
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [explorerWidth]);
+
   return (
     <div className="app">
       <AppHeader />
@@ -120,8 +146,15 @@ export const EditorPage: React.FC = () => {
           className="editor-panel"
           style={{ width: `${editorWidthPct}%`, display: 'flex', flexDirection: 'row' }}
         >
-          {/* File explorer sidebar */}
-          {explorerOpen && <FileExplorer onSaveClick={handleSaveClick} />}
+          {/* File explorer sidebar + resize handle */}
+          {explorerOpen && (
+            <>
+              <div style={{ width: explorerWidth, flexShrink: 0, display: 'flex', overflow: 'hidden' }}>
+                <FileExplorer onSaveClick={handleSaveClick} />
+              </div>
+              <div className="explorer-resize-handle" onMouseDown={handleExplorerResizeMouseDown} />
+            </>
+          )}
 
           {/* Editor main area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
