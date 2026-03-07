@@ -14,6 +14,7 @@
 
 import JSZip from 'jszip';
 import type { Wire } from '../types/wire';
+import { ARDUINO_POSITION } from '../store/useSimulatorStore';
 
 // ── Type definitions ──────────────────────────────────────────────────────────
 
@@ -124,13 +125,14 @@ export async function exportToWokwiZip(
   const boardId = BOARD_TO_WOKWI_ID[boardType] ?? 'uno';
 
   // Build parts — board first, then user components
+  // Subtract ARDUINO_POSITION to convert from Velxio coords to Wokwi-relative coords
   const parts: WokwiPart[] = [
     { type: boardWokwiType, id: boardId, top: 0, left: 0, attrs: {} },
     ...components.map((c) => ({
       type: metadataIdToWokwiType(c.metadataId),
       id: c.id,
-      top: Math.round(c.y),
-      left: Math.round(c.x),
+      top: Math.round(c.y - ARDUINO_POSITION.y),
+      left: Math.round(c.x - ARDUINO_POSITION.x),
       attrs: c.properties as Record<string, unknown>,
     })),
   ];
@@ -190,14 +192,20 @@ export async function importFromWokwiZip(file: File): Promise<ImportResult> {
   const boardType = boardPart ? WOKWI_TYPE_TO_BOARD[boardPart.type] : 'arduino-uno';
   const boardId = boardPart?.id ?? 'uno';
 
-  // Convert non-board parts to Velxio components
+  // Calculate offset: Wokwi board position → Velxio ARDUINO_POSITION
+  const wokwiBoardX = boardPart?.left ?? 0;
+  const wokwiBoardY = boardPart?.top ?? 0;
+  const offsetX = ARDUINO_POSITION.x - wokwiBoardX;
+  const offsetY = ARDUINO_POSITION.y - wokwiBoardY;
+
+  // Convert non-board parts to Velxio components (apply offset)
   const components: VelxioComponent[] = diagram.parts
     .filter((p) => !WOKWI_TYPE_TO_BOARD[p.type])
     .map((p) => ({
       id: p.id,
       metadataId: wokwiTypeToMetadataId(p.type),
-      x: p.left,
-      y: p.top,
+      x: p.left + offsetX,
+      y: p.top + offsetY,
       properties: { ...p.attrs },
     }));
 
