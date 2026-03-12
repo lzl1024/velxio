@@ -56,6 +56,9 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 
+# WebSockets
+from app.api.routes import simulation
+app.include_router(simulation.router, prefix="/api/simulation", tags=["simulation"])
 
 @app.get("/")
 def root():

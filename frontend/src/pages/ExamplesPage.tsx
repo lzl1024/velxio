@@ -7,6 +7,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExamplesGallery } from '../components/examples/ExamplesGallery';
+import { AppHeader } from '../components/layout/AppHeader';
 import { useEditorStore } from '../store/useEditorStore';
 import { useSimulatorStore } from '../store/useSimulatorStore';
 import type { ExampleProject } from '../data/examples';
@@ -71,5 +72,10 @@ export const ExamplesPage: React.FC = () => {
     navigate('/editor');
   };
 
-  return <ExamplesGallery onLoadExample={handleLoadExample} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#1e1e1e' }}>
+      <AppHeader />
+      <ExamplesGallery onLoadExample={handleLoadExample} />
+    </div>
+  );
 };

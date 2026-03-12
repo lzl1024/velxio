@@ -78,3 +78,6 @@ wokwi-libs/*/.cache/
 .history/*
 .daveagent/*
 data/*
+.publicar/*
+.publicar_discord/*
+img/*

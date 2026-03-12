@@ -28,6 +28,8 @@ body {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 100;
 }
 
 .header-content {
@@ -50,6 +52,7 @@ body {
   letter-spacing: 0.2px;
 }
 
+/* Kept for backward compatibility */
 .examples-link {
   display: flex;
   align-items: center;
@@ -69,6 +72,77 @@ body {
   background: #2a2d2e;
   color: #fff;
   border-color: #555;
+}
+
+/* ── Unified nav links ──────────────────────────── */
+.header-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.header-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  color: #9d9d9d;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.header-nav-link:hover {
+  color: #e0e0e0;
+  background: #2a2d2e;
+}
+
+.header-nav-link-active {
+  color: #e0e0e0;
+  background: #2a2d2e;
+}
+
+.header-nav-discord {
+  color: #7289da;
+}
+
+.header-nav-discord:hover {
+  color: #8fa8f5;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Mobile hamburger */
+.header-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.header-hamburger span {
+  display: block;
+  height: 2px;
+  background: #9d9d9d;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+
+.header-hamburger:hover span {
+  background: #e0e0e0;
 }
 
 /* ── Main panels container ──────────────────────── */
@@ -246,5 +320,35 @@ body {
 
   .examples-link {
     padding: 6px 8px;
+  }
+
+  /* Mobile nav: hide links, show hamburger, dropdown on open */
+  .header-nav-links {
+    display: none;
+    position: absolute;
+    top: 44px;
+    left: 0;
+    right: 0;
+    background: #252526;
+    border-bottom: 1px solid #007acc;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 0;
+    z-index: 200;
+  }
+
+  .header-nav-links.header-nav-open {
+    display: flex;
+  }
+
+  .header-nav-link {
+    padding: 10px 16px;
+    border-radius: 0;
+    font-size: 14px;
+  }
+
+  .header-hamburger {
+    display: flex;
   }
 }

@@ -5,7 +5,6 @@
  */
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { exampleProjects, getCategories, type ExampleProject } from '../../data/examples';
 import './ExamplesGallery.css';
 
@@ -110,11 +109,6 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
 
   return (
     <div className="examples-gallery">
-      <div className="examples-nav">
-        <Link to="/editor" className="back-link">
-          ← Back to Editor
-        </Link>
-      </div>
       <div className="examples-header">
         <h1>Featured Projects</h1>
         <p>Explore and run example Arduino projects</p>

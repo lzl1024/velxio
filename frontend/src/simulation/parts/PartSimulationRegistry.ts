@@ -46,3 +46,14 @@ class PartRegistry {
 }
 
 export const PartSimulationRegistry = new PartRegistry();
+
+// Import store explicitly inside a function to avoid circular dependencies if any,
+// but since we just need it at runtime, we can import it at the top or dynamically.
+import { useSimulatorStore } from '../../store/useSimulatorStore';
+
+PartSimulationRegistry.register('raspberry-pi-3', {
+    onPinStateChange: (pinName: string, state: boolean, _element: HTMLElement) => {
+        // When Arduino changes a pin connected to Raspberry Pi, forward to backend
+        useSimulatorStore.getState().sendRemotePinEvent(pinName, state ? 1 : 0);
+    }
+});

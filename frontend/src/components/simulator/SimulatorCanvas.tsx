@@ -33,6 +33,8 @@ export const SimulatorCanvas = () => {
     updateComponent,
     serialMonitorOpen,
     toggleSerialMonitor,
+    connectRemoteSimulator,
+    disconnectRemoteSimulator,
   } = useSimulatorStore();
 
   // Wire management from store
@@ -118,6 +120,21 @@ export const SimulatorCanvas = () => {
   useEffect(() => {
     initSimulator();
   }, [initSimulator]);
+
+  // Connect to Remote Simulator (QEMU) if a Raspberry Pi exists and simulation is running
+  useEffect(() => {
+    const hasPi = components.some(c => c.metadataId === 'raspberry-pi-3');
+    if (running && hasPi) {
+       // Using a random client ID or static one for local development
+       connectRemoteSimulator('local-velxio-client');
+    } else {
+       disconnectRemoteSimulator();
+    }
+    
+    return () => {
+       if (!running) disconnectRemoteSimulator();
+    };
+  }, [running, components, connectRemoteSimulator, disconnectRemoteSimulator]);
 
   // Attach wheel listener as non-passive so preventDefault() works
   useEffect(() => {
