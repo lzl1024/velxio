@@ -11,85 +11,82 @@ jobs:
       - name: Send issue to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_ISSUES }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_USER: ${{ github.event.issue.user.login }}
+          ISSUE_AVATAR: ${{ github.event.issue.user.avatar_url }}
+          ISSUE_CREATED_AT: ${{ github.event.issue.created_at }}
+          REPO: ${{ github.repository }}
+          LABELS_JSON: ${{ toJson(github.event.issue.labels) }}
         run: |
-          ISSUE_NUMBER="${{ github.event.issue.number }}"
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_URL="${{ github.event.issue.html_url }}"
-          ISSUE_BODY="${{ github.event.issue.body }}"
-          ISSUE_USER="${{ github.event.issue.user.login }}"
-          ISSUE_AVATAR="${{ github.event.issue.user.avatar_url }}"
-          REPO="${{ github.repository }}"
+          python3 - <<'PYEOF'
+          import json, os, urllib.request
 
-          # Truncate body to 300 chars to keep embed clean
-          SHORT_BODY=$(echo "$ISSUE_BODY" | head -c 300)
-          if [ ${#ISSUE_BODY} -gt 300 ]; then
-            SHORT_BODY="${SHORT_BODY}..."
-          fi
+          number     = os.environ["ISSUE_NUMBER"]
+          title      = os.environ["ISSUE_TITLE"]
+          url        = os.environ["ISSUE_URL"]
+          body       = os.environ.get("ISSUE_BODY") or ""
+          user       = os.environ["ISSUE_USER"]
+          avatar     = os.environ["ISSUE_AVATAR"]
+          repo       = os.environ["REPO"]
+          created_at = os.environ["ISSUE_CREATED_AT"]
+          webhook    = os.environ["DISCORD_WEBHOOK"]
 
-          # Build labels list (may be empty)
-          LABELS_JSON='${{ toJson(github.event.issue.labels) }}'
-          LABELS=$(echo "$LABELS_JSON" | python3 -c "
-          import json, sys
-          labels = json.load(sys.stdin)
-          if labels:
-              print(', '.join(f'\`{l[\"name\"]}\`' for l in labels))
-          else:
-              print('*(none)*')
-          " 2>/dev/null || echo "*(none)*")
+          # Truncate body
+          short_body = body[:300] + ("..." if len(body) > 300 else "")
+          if not short_body.strip():
+              short_body = "*(no description)*"
 
-          # Discord embed payload
-          PAYLOAD=$(python3 -c "
-          import json, sys
+          # Labels
+          try:
+              labels_raw = json.loads(os.environ.get("LABELS_JSON", "[]"))
+              labels = ", ".join(f"`{l['name']}`" for l in labels_raw) if labels_raw else "*(none)*"
+          except Exception:
+              labels = "*(none)*"
 
           payload = {
-            'content': '@everyone 📢 **New issue reported on Velxio!**',
-            'embeds': [{
-              'title': f'🐛 Issue #{sys.argv[1]}: {sys.argv[2]}',
-              'url': sys.argv[3],
-              'description': sys.argv[4] if sys.argv[4].strip() else '*(no description)*',
-              'color': 0xE74C3C,
-              'fields': [
-                {
-                  'name': '📦 Repository',
-                  'value': f'[\`{sys.argv[7]}\`](https://github.com/{sys.argv[7]})',
-                  'inline': True
-                },
-                {
-                  'name': '🏷️ Labels',
-                  'value': sys.argv[6],
-                  'inline': True
-                }
-              ],
-              'author': {
-                'name': sys.argv[5],
-                'url': f'https://github.com/{sys.argv[5]}',
-                'icon_url': sys.argv[8]
-              },
-              'footer': {
-                'text': 'Velxio · GitHub Issues'
-              },
-              'timestamp': '${{ github.event.issue.created_at }}'
-            }]
+              "content": "@everyone 📢 **New issue reported on Velxio!**",
+              "embeds": [{
+                  "title": f"🐛 Issue #{number}: {title}",
+                  "url": url,
+                  "description": short_body,
+                  "color": 0xE74C3C,
+                  "fields": [
+                      {
+                          "name": "📦 Repository",
+                          "value": f"[`{repo}`](https://github.com/{repo})",
+                          "inline": True
+                      },
+                      {
+                          "name": "🏷️ Labels",
+                          "value": labels,
+                          "inline": True
+                      }
+                  ],
+                  "author": {
+                      "name": user,
+                      "url": f"https://github.com/{user}",
+                      "icon_url": avatar
+                  },
+                  "footer": {"text": "Velxio · GitHub Issues"},
+                  "timestamp": created_at
+              }]
           }
-          print(json.dumps(payload))
-          " \
-            "$ISSUE_NUMBER" \
-            "$ISSUE_TITLE" \
-            "$ISSUE_URL" \
-            "$SHORT_BODY" \
-            "$ISSUE_USER" \
-            "$LABELS" \
-            "$REPO" \
-            "$ISSUE_AVATAR"
+
+          data = json.dumps(payload).encode()
+          req = urllib.request.Request(
+              webhook,
+              data=data,
+              headers={"Content-Type": "application/json"},
+              method="POST"
           )
-
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Content-Type: application/json" \
-            -X POST \
-            -d "$PAYLOAD" \
-            "$DISCORD_WEBHOOK")
-
-          echo "Discord response: $HTTP_STATUS"
-          if [ "$HTTP_STATUS" -ne 204 ]; then
-            echo "::warning::Discord webhook returned $HTTP_STATUS"
-          fi
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  print(f"Discord response: {resp.status}")
+          except urllib.error.HTTPError as e:
+              body_err = e.read().decode()
+              print(f"Discord error: {e.code} {e.reason} — {body_err}")
+              raise SystemExit(1)
+          PYEOF
