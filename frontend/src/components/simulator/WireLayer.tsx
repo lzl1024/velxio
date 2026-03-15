@@ -1,37 +1,17 @@
-/**
- * WireLayer Component
- *
- * SVG layer that renders all wires below components.
- * Positioned absolutely with full canvas coverage.
- *
- * Features:
- * - Automatic offset calculation for overlapping wires
- * - Visual separation of parallel wires
- */
-
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useSimulatorStore } from '../../store/useSimulatorStore';
 import { WireRenderer } from './WireRenderer';
 import { WireInProgressRenderer } from './WireInProgressRenderer';
-import { calculateWireOffsets, applyOffsetToWire } from '../../utils/wireOffsetCalculator';
 
-export const WireLayer: React.FC = () => {
-  const { wires, wireInProgress, selectedWireId } = useSimulatorStore();
+interface WireLayerProps {
+  hoveredWireId: string | null;
+  wireDragPreview: { wireId: string; waypoints: { x: number; y: number }[] } | null;
+}
 
-  // Calculate automatic offsets for overlapping wires
-  const wireOffsets = useMemo(() => {
-    return calculateWireOffsets(wires);
-  }, [wires]);
-
-  // Apply offsets to wires for rendering
-  // Priority: manual offset > automatic offset > 0
-  const offsetWires = useMemo(() => {
-    return wires.map(wire => {
-      const automaticOffset = wireOffsets.get(wire.id) || 0;
-      const finalOffset = wire.manualOffset !== undefined ? wire.manualOffset : automaticOffset;
-      return applyOffsetToWire(wire, finalOffset);
-    });
-  }, [wires, wireOffsets]);
+export const WireLayer: React.FC<WireLayerProps> = ({ hoveredWireId, wireDragPreview }) => {
+  const wires = useSimulatorStore((s) => s.wires);
+  const wireInProgress = useSimulatorStore((s) => s.wireInProgress);
+  const selectedWireId = useSimulatorStore((s) => s.selectedWireId);
 
   return (
     <svg
@@ -42,29 +22,23 @@ export const WireLayer: React.FC = () => {
         left: 0,
         width: '100%',
         height: '100%',
-        overflow: 'visible',  // Allow wires to render outside the SVG viewport (e.g. negative coords)
-        pointerEvents: 'auto',  // Enable pointer events for control points
-        zIndex: 1,  // Below components (which have zIndex: 2)
+        overflow: 'visible',
+        pointerEvents: 'none',
+        zIndex: 1,
       }}
     >
-      {/* Transparent background - allows click-through when not clicking on wires */}
-      <rect
-        width="100%"
-        height="100%"
-        fill="transparent"
-        style={{ pointerEvents: 'none' }}
-      />
-
-      {/* Render all wires with automatic offsets */}
-      {offsetWires.map((wire, index) => (
+      {wires.map((wire) => (
         <WireRenderer
           key={wire.id}
           wire={wire}
           isSelected={wire.id === selectedWireId}
+          isHovered={wire.id === hoveredWireId}
+          previewWaypoints={
+            wireDragPreview?.wireId === wire.id ? wireDragPreview.waypoints : undefined
+          }
         />
       ))}
 
-      {/* Render wire being created (Phase 2) */}
       {wireInProgress && (
         <WireInProgressRenderer wireInProgress={wireInProgress} />
       )}

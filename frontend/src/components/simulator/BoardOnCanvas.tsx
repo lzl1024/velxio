@@ -8,16 +8,17 @@ import { RaspberryPi3 } from '../components-wokwi/RaspberryPi3';
 import { Esp32 } from '../components-wokwi/Esp32';
 import { PinOverlay } from './PinOverlay';
 
-// Board visual dimensions (width × height) for the drag-overlay sizing
+// Board visual dimensions (width × height) for the drag-overlay sizing.
+// ESP32 sizes match the wokwi-boards SVG rendered at 5 px/mm.
 const BOARD_SIZE: Record<string, { w: number; h: number }> = {
-  'arduino-uno':   { w: 360, h: 250 },
-  'arduino-nano':  { w: 175, h: 70 },
-  'arduino-mega':  { w: 530, h: 195 },
+  'arduino-uno':       { w: 360, h: 250 },
+  'arduino-nano':      { w: 175, h:  70 },
+  'arduino-mega':      { w: 530, h: 195 },
   'raspberry-pi-pico': { w: 280, h: 180 },
   'raspberry-pi-3':    { w: 250, h: 160 },
-  'esp32':    { w: 280, h: 185 },
-  'esp32-s3': { w: 280, h: 185 },
-  'esp32-c3': { w: 260, h: 175 },
+  'esp32':    { w: 141, h: 265 },  // esp32-devkit-v1: 28.2 × 53 mm
+  'esp32-s3': { w: 128, h: 350 },  // esp32-s3-devkitc-1: 25.5 × 70 mm
+  'esp32-c3': { w: 127, h: 215 },  // esp32-c3-devkitm-1: 25.4 × 42.9 mm
 };
 
 interface BoardOnCanvasProps {
@@ -53,7 +54,7 @@ export const BoardOnCanvas = ({
       case 'esp32':
       case 'esp32-s3':
       case 'esp32-c3':
-        return <Esp32 id={id} x={x} y={y} />;
+        return <Esp32 id={id} x={x} y={y} boardKind={boardKind} />;
     }
   })();
 

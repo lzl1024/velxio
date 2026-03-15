@@ -32,6 +32,17 @@ import type { BoardKind } from '../types/board';
 const API_BASE = (): string =>
   (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8001/api';
 
+/** Returns a stable UUID for this browser tab (persists across reloads, resets on new tab). */
+function getTabSessionId(): string {
+  const KEY = 'velxio-tab-id';
+  let id = sessionStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
 export interface Ws2812Pixel { r: number; g: number; b: number }
 export interface LedcUpdate  { channel: number; duty: number; duty_pct: number }
 
@@ -71,8 +82,9 @@ export class Esp32Bridge {
 
     const base = API_BASE();
     const wsProtocol = base.startsWith('https') ? 'wss:' : 'ws:';
+    const sessionId = getTabSessionId();
     const wsUrl = base.replace(/^https?:/, wsProtocol)
-      + `/simulation/ws/${encodeURIComponent(this.boardId)}`;
+      + `/simulation/ws/${encodeURIComponent(sessionId + '::' + this.boardId)}`;
 
     const socket = new WebSocket(wsUrl);
     this.socket = socket;

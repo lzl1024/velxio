@@ -70,9 +70,7 @@ export const ExamplesPage: React.FC = () => {
         y: 0,
       },
       color: wire.color,
-      controlPoints: [],
-      isValid: true,
-      signalType: 'digital' as const,
+      waypoints: [],
     }));
 
     setWires(wiresWithPositions);

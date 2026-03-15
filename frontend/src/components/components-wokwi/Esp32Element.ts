@@ -1,140 +1,192 @@
 /**
- * ESP32 DevKit-C Web Component
+ * ESP32 Web Components
  *
- * Renders an ESP32 DevKit-C board (38 pins) as a custom HTML element.
- * Pin layout follows the standard ESP32 DevKit-C pinout.
+ * Uses the official wokwi-boards SVG assets for realistic board rendering.
+ * Pin positions are derived from board.json definitions (mm × 5 px/mm).
+ *
+ * Supports three variants via the `board-kind` attribute:
+ *   - esp32        → ESP32 DevKit V1      (141 × 265 px)
+ *   - esp32-s3     → ESP32-S3 DevKitC-1   (128 × 350 px)
+ *   - esp32-c3     → ESP32-C3 DevKitM-1   (127 × 215 px)
  */
 
-const ESP32_WIDTH  = 280;
-const ESP32_HEIGHT = 185;
+import esp32SvgUrl  from '../../../../wokwi-libs/wokwi-boards/boards/esp32-devkit-v1/board.svg?url';
+import esp32S3SvgUrl from '../../../../wokwi-libs/wokwi-boards/boards/esp32-s3-devkitc-1/board.svg?url';
+import esp32C3SvgUrl from '../../../../wokwi-libs/wokwi-boards/boards/esp32-c3-devkitm-1/board.svg?url';
 
-// ESP32 DevKit-C pinout (left column = GPIO order top-to-bottom, right column = same)
-const ESP32_PINS = [
-  // Left column (top to bottom)
-  { name: 'GPIO36', x: 2,   y: 18  },
-  { name: 'GPIO39', x: 2,   y: 29  },
-  { name: 'GPIO34', x: 2,   y: 40  },
-  { name: 'GPIO35', x: 2,   y: 51  },
-  { name: 'GPIO32', x: 2,   y: 62  },
-  { name: 'GPIO33', x: 2,   y: 73  },
-  { name: 'GPIO25', x: 2,   y: 84  },
-  { name: 'GPIO26', x: 2,   y: 95  },
-  { name: 'GPIO27', x: 2,   y: 106 },
-  { name: 'GPIO14', x: 2,   y: 117 },
-  { name: 'GPIO12', x: 2,   y: 128 },
-  { name: 'GND',    x: 2,   y: 139 },
-  { name: 'GPIO13', x: 2,   y: 150 },
-  { name: 'GPIO9',  x: 2,   y: 161 },
-  { name: 'GPIO10', x: 2,   y: 172 },
-  { name: 'GPIO11', x: 2,   y: 183 },
+// ─── Pin positions (mm × 5 px/mm, from board.json) ───────────────────────────
 
-  // Right column (top to bottom)
-  { name: '3V3',    x: 278, y: 18  },
-  { name: 'EN',     x: 278, y: 29  },
-  { name: 'GPIO36', x: 278, y: 40  },
-  { name: 'GPIO39', x: 278, y: 51  },
-  { name: 'GPIO34', x: 278, y: 62  },
-  { name: 'GPIO35', x: 278, y: 73  },
-  { name: 'GPIO32', x: 278, y: 84  },
-  { name: 'GPIO33', x: 278, y: 95  },
-  { name: 'GPIO25', x: 278, y: 106 },
-  { name: 'GPIO26', x: 278, y: 117 },
-  { name: 'GPIO27', x: 278, y: 128 },
-  { name: 'GND',    x: 278, y: 139 },
-  { name: 'GPIO13', x: 278, y: 150 },
-  { name: 'GPIO15', x: 278, y: 161 },
-  { name: 'GPIO2',  x: 278, y: 172 },
-  { name: 'GPIO0',  x: 278, y: 183 },
-
-  // Bottom row
-  { name: 'GND',    x: 30,  y: 183 },
-  { name: '5V',     x: 50,  y: 183 },
-  { name: 'GPIO23', x: 70,  y: 183 },
-  { name: 'GPIO22', x: 90,  y: 183 },
-  { name: 'TX',     x: 110, y: 183 },
-  { name: 'RX',     x: 130, y: 183 },
-  { name: 'GPIO21', x: 150, y: 183 },
-  { name: 'GND',    x: 170, y: 183 },
-  { name: 'GPIO19', x: 190, y: 183 },
-  { name: 'GPIO18', x: 210, y: 183 },
-  { name: 'GPIO5',  x: 230, y: 183 },
-  { name: 'GPIO17', x: 250, y: 183 },
-  { name: 'GPIO16', x: 270, y: 183 },
-  { name: 'GPIO4',  x: 20,  y: 183 },
+// ESP32 DevKit V1: 28.2 mm × 53 mm → 141 × 265 px
+// Left col: x = 1.27 mm → 6 px  |  Right col: x = 26.8 mm → 134 px
+const PINS_ESP32 = [
+  { name: 'EN',   x:   6, y:  29 },
+  { name: 'VN',   x:   6, y:  42 },
+  { name: 'VP',   x:   6, y:  54 },
+  { name: 'D34',  x:   6, y:  67 },
+  { name: 'D35',  x:   6, y:  80 },
+  { name: 'D32',  x:   6, y:  93 },
+  { name: 'D33',  x:   6, y: 105 },
+  { name: 'D25',  x:   6, y: 118 },
+  { name: 'D26',  x:   6, y: 131 },
+  { name: 'D27',  x:   6, y: 143 },
+  { name: 'D14',  x:   6, y: 156 },
+  { name: 'D12',  x:   6, y: 169 },
+  { name: 'D13',  x:   6, y: 181 },
+  { name: 'GND',  x:   6, y: 194 },
+  { name: 'VIN',  x:   6, y: 207 },
+  { name: '3V3',  x: 134, y: 207 },
+  { name: 'GND',  x: 134, y: 194 },
+  { name: 'D15',  x: 134, y: 181 },
+  { name: 'D2',   x: 134, y: 169 },
+  { name: 'D4',   x: 134, y: 156 },
+  { name: 'RX2',  x: 134, y: 143 },
+  { name: 'TX2',  x: 134, y: 131 },
+  { name: 'D5',   x: 134, y: 118 },
+  { name: 'D18',  x: 134, y: 105 },
+  { name: 'D19',  x: 134, y:  93 },
+  { name: 'D21',  x: 134, y:  80 },
+  { name: 'RX0',  x: 134, y:  67 },
+  { name: 'TX0',  x: 134, y:  54 },
+  { name: 'D22',  x: 134, y:  42 },
+  { name: 'D23',  x: 134, y:  29 },
 ];
 
+// ESP32-S3 DevKitC-1: 25.527 mm × 70.057 mm → 128 × 350 px
+// Left col: x = 1.343 mm → 7 px  |  Right col: x = 24.19 mm → 121 px
+const PINS_ESP32_S3 = [
+  { name: '3V3.1', x:   7, y:  38 },
+  { name: '3V3.2', x:   7, y:  51 },
+  { name: 'RST',   x:   7, y:  64 },
+  { name: '4',     x:   7, y:  76 },
+  { name: '5',     x:   7, y:  89 },
+  { name: '6',     x:   7, y: 102 },
+  { name: '7',     x:   7, y: 115 },
+  { name: '15',    x:   7, y: 127 },
+  { name: '16',    x:   7, y: 140 },
+  { name: '17',    x:   7, y: 153 },
+  { name: '18',    x:   7, y: 166 },
+  { name: '8',     x:   7, y: 178 },
+  { name: '3',     x:   7, y: 191 },
+  { name: '46',    x:   7, y: 203 },
+  { name: '9',     x:   7, y: 216 },
+  { name: '10',    x:   7, y: 229 },
+  { name: '11',    x:   7, y: 242 },
+  { name: '12',    x:   7, y: 254 },
+  { name: '13',    x:   7, y: 267 },
+  { name: '14',    x:   7, y: 280 },
+  { name: '5V',    x:   7, y: 292 },
+  { name: 'GND.1', x:   7, y: 305 },
+  { name: 'GND.2', x: 121, y:  38 },
+  { name: 'TX',    x: 121, y:  51 },
+  { name: 'RX',    x: 121, y:  64 },
+  { name: '1',     x: 121, y:  76 },
+  { name: '2',     x: 121, y:  89 },
+  { name: '42',    x: 121, y: 102 },
+  { name: '41',    x: 121, y: 115 },
+  { name: '40',    x: 121, y: 127 },
+  { name: '39',    x: 121, y: 140 },
+  { name: '38',    x: 121, y: 153 },
+  { name: '37',    x: 121, y: 166 },
+  { name: '36',    x: 121, y: 178 },
+  { name: '35',    x: 121, y: 191 },
+  { name: '0',     x: 121, y: 203 },
+  { name: '45',    x: 121, y: 216 },
+  { name: '48',    x: 121, y: 229 },
+  { name: '47',    x: 121, y: 242 },
+  { name: '21',    x: 121, y: 254 },
+  { name: '20',    x: 121, y: 267 },
+  { name: '19',    x: 121, y: 280 },
+  { name: 'GND.3', x: 121, y: 292 },
+  { name: 'GND.4', x: 121, y: 305 },
+];
+
+// ESP32-C3 DevKitM-1: 25.4 mm × 42.91 mm → 127 × 215 px
+// Left col: x = 1 mm → 5 px  |  Right col: x = 24.2 mm → 121 px
+const PINS_ESP32_C3 = [
+  { name: 'GND.1',  x:   5, y:  26 },
+  { name: '3V3.1',  x:   5, y:  39 },
+  { name: '3V3.2',  x:   5, y:  51 },
+  { name: '2',      x:   5, y:  64 },
+  { name: '3',      x:   5, y:  77 },
+  { name: 'GND.2',  x:   5, y:  89 },
+  { name: 'RST',    x:   5, y: 102 },
+  { name: 'GND.3',  x:   5, y: 115 },
+  { name: '0',      x:   5, y: 127 },
+  { name: '1',      x:   5, y: 140 },
+  { name: '10',     x:   5, y: 153 },
+  { name: 'GND.4',  x:   5, y: 166 },
+  { name: '5V.1',   x:   5, y: 178 },
+  { name: '5V.2',   x:   5, y: 191 },
+  { name: 'GND.5',  x:   5, y: 204 },
+  { name: 'GND.6',  x: 121, y: 204 },
+  { name: '19',     x: 121, y: 191 },
+  { name: '18',     x: 121, y: 178 },
+  { name: 'GND.7',  x: 121, y: 166 },
+  { name: '4',      x: 121, y: 153 },
+  { name: '5',      x: 121, y: 140 },
+  { name: '6',      x: 121, y: 127 },
+  { name: '7',      x: 121, y: 115 },
+  { name: 'GND.8',  x: 121, y: 102 },
+  { name: '8',      x: 121, y:  89 },
+  { name: '9',      x: 121, y:  77 },
+  { name: 'GND.9',  x: 121, y:  64 },
+  { name: 'RX',     x: 121, y:  51 },
+  { name: 'TX',     x: 121, y:  39 },
+  { name: 'GND.10', x: 121, y:  26 },
+];
+
+// ─── Board config by variant ──────────────────────────────────────────────────
+
+interface BoardConfig {
+  svgUrl: string;
+  w: number;
+  h: number;
+  pins: { name: string; x: number; y: number }[];
+}
+
+const BOARD_CONFIGS: Record<string, BoardConfig> = {
+  'esp32':    { svgUrl: esp32SvgUrl,   w: 141, h: 265, pins: PINS_ESP32    },
+  'esp32-s3': { svgUrl: esp32S3SvgUrl, w: 128, h: 350, pins: PINS_ESP32_S3 },
+  'esp32-c3': { svgUrl: esp32C3SvgUrl, w: 127, h: 215, pins: PINS_ESP32_C3 },
+};
+
+// ─── Custom element ───────────────────────────────────────────────────────────
+
 class Esp32Element extends HTMLElement {
+  static get observedAttributes() { return ['board-kind']; }
+
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
   }
 
-  connectedCallback() {
-    this.render();
+  connectedCallback() { this.render(); }
+  attributeChangedCallback() { this.render(); }
+
+  private get config(): BoardConfig {
+    const kind = this.getAttribute('board-kind') ?? 'esp32';
+    return BOARD_CONFIGS[kind] ?? BOARD_CONFIGS['esp32'];
   }
 
   get pinInfo() {
-    return ESP32_PINS;
+    return this.config.pins;
   }
 
-  render() {
+  private render() {
     if (!this.shadowRoot) return;
-
+    const { svgUrl, w, h } = this.config;
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: inline-block; }
-        svg { display: block; }
+        :host { display: inline-block; line-height: 0; }
+        img   { display: block; }
       </style>
-      <svg
-        width="${ESP32_WIDTH}"
-        height="${ESP32_HEIGHT}"
-        viewBox="0 0 ${ESP32_WIDTH} ${ESP32_HEIGHT}"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <!-- PCB body -->
-        <rect x="10" y="5" width="${ESP32_WIDTH - 20}" height="${ESP32_HEIGHT - 15}"
-              rx="4" fill="#1a6b3e" stroke="#0d4a2a" stroke-width="1.5"/>
-
-        <!-- USB connector -->
-        <rect x="115" y="0" width="50" height="12" rx="2" fill="#888"/>
-        <rect x="119" y="2" width="42" height="8" rx="1" fill="#555"/>
-
-        <!-- ESP32 chip -->
-        <rect x="95" y="55" width="90" height="60" rx="4" fill="#222" stroke="#444" stroke-width="1"/>
-        <text x="140" y="86" text-anchor="middle" fill="#aaa" font-size="9" font-family="monospace">ESP32</text>
-        <text x="140" y="97" text-anchor="middle" fill="#666" font-size="7" font-family="monospace">WROOM-32</text>
-
-        <!-- WiFi/BT chip -->
-        <rect x="100" y="20" width="80" height="30" rx="2" fill="#2a2a2a" stroke="#555" stroke-width="0.5"/>
-        <text x="140" y="38" text-anchor="middle" fill="#888" font-size="7" font-family="monospace">WiFi+BT</text>
-
-        <!-- LED indicators -->
-        <circle cx="60" cy="25" r="4" fill="#f00" opacity="0.8"/>
-        <text x="60" y="40" text-anchor="middle" fill="#aaa" font-size="6" font-family="monospace">PWR</text>
-        <circle cx="78" cy="25" r="4" fill="#00f" opacity="0.6"/>
-        <text x="78" y="40" text-anchor="middle" fill="#aaa" font-size="6" font-family="monospace">BT</text>
-
-        <!-- BOOT and EN buttons -->
-        <rect x="210" y="145" width="20" height="8" rx="2" fill="#444"/>
-        <text x="220" y="162" text-anchor="middle" fill="#aaa" font-size="5" font-family="monospace">BOOT</text>
-        <rect x="210" y="125" width="20" height="8" rx="2" fill="#444"/>
-        <text x="220" y="122" text-anchor="middle" fill="#aaa" font-size="5" font-family="monospace">EN</text>
-
-        <!-- Left header pins -->
-        ${ESP32_PINS.filter(p => p.x < 10).map((p, i) => `
-          <rect x="3" y="${p.y - 3}" width="8" height="6" fill="#c8a000" rx="0.5"/>
-        `).join('')}
-
-        <!-- Right header pins -->
-        ${ESP32_PINS.filter(p => p.x > 270).map((p) => `
-          <rect x="${ESP32_WIDTH - 11}" y="${p.y - 3}" width="8" height="6" fill="#c8a000" rx="0.5"/>
-        `).join('')}
-
-        <!-- Board label -->
-        <text x="140" y="${ESP32_HEIGHT - 4}" text-anchor="middle" fill="#5a9" font-size="7" font-family="monospace">
-          ESP32 DevKit-C
-        </text>
-      </svg>
+      <img
+        src="${svgUrl}"
+        width="${w}"
+        height="${h}"
+        draggable="false"
+        alt="ESP32 board"
+      />
     `;
   }
 }

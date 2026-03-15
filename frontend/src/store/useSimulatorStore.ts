@@ -127,8 +127,10 @@ interface SimulatorState {
   updateWire: (wireId: string, updates: Partial<Wire>) => void;
   setSelectedWire: (wireId: string | null) => void;
   setWires: (wires: Wire[]) => void;
-  startWireCreation: (endpoint: WireEndpoint) => void;
+  startWireCreation: (endpoint: WireEndpoint, color: string) => void;
   updateWireInProgress: (x: number, y: number) => void;
+  addWireWaypoint: (x: number, y: number) => void;
+  setWireInProgressColor: (color: string) => void;
   finishWireCreation: (endpoint: WireEndpoint) => void;
   cancelWireCreation: () => void;
   updateWirePositions: (componentId: string) => void;
@@ -768,19 +770,15 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         id: 'wire-test-1',
         start: { componentId: 'arduino-uno', pinName: 'GND.1', x: 0, y: 0 },
         end: { componentId: 'led-builtin', pinName: 'A', x: 0, y: 0 },
-        controlPoints: [],
+        waypoints: [],
         color: '#000000',
-        signalType: 'power-gnd',
-        isValid: true,
       },
       {
         id: 'wire-test-2',
         start: { componentId: 'arduino-uno', pinName: '13', x: 0, y: 0 },
         end: { componentId: 'led-builtin', pinName: 'C', x: 0, y: 0 },
-        controlPoints: [],
-        color: '#00ff00',
-        signalType: 'digital',
-        isValid: true,
+        waypoints: [],
+        color: '#22c55e',
       },
     ],
     selectedWireId: null,
@@ -827,10 +825,19 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
     setSelectedWire: (wireId) => set({ selectedWireId: wireId }),
 
-    setWires: (wires) => set({ wires }),
+    setWires: (wires) => set({
+      // Ensure every wire has waypoints (backwards-compatible with saved projects)
+      wires: wires.map((w) => ({ waypoints: [], ...w })),
+    }),
 
-    startWireCreation: (endpoint) => set({
-      wireInProgress: { startEndpoint: endpoint, currentX: endpoint.x, currentY: endpoint.y },
+    startWireCreation: (endpoint, color) => set({
+      wireInProgress: {
+        startEndpoint: endpoint,
+        waypoints: [],
+        color,
+        currentX: endpoint.x,
+        currentY: endpoint.y,
+      },
     }),
 
     updateWireInProgress: (x, y) => set((state) => {
@@ -838,20 +845,31 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       return { wireInProgress: { ...state.wireInProgress, currentX: x, currentY: y } };
     }),
 
+    addWireWaypoint: (x, y) => set((state) => {
+      if (!state.wireInProgress) return state;
+      return {
+        wireInProgress: {
+          ...state.wireInProgress,
+          waypoints: [...state.wireInProgress.waypoints, { x, y }],
+        },
+      };
+    }),
+
+    setWireInProgressColor: (color) => set((state) => {
+      if (!state.wireInProgress) return state;
+      return { wireInProgress: { ...state.wireInProgress, color } };
+    }),
+
     finishWireCreation: (endpoint) => {
       const state = get();
       if (!state.wireInProgress) return;
-      const { startEndpoint } = state.wireInProgress;
-      const midX = (startEndpoint.x + endpoint.x) / 2;
-      const midY = (startEndpoint.y + endpoint.y) / 2;
+      const { startEndpoint, waypoints, color } = state.wireInProgress;
       const newWire: Wire = {
         id: `wire-${Date.now()}`,
         start: startEndpoint,
         end: endpoint,
-        controlPoints: [{ id: `cp-${Date.now()}`, x: midX, y: midY }],
-        color: '#00ff00',
-        signalType: 'digital',
-        isValid: true,
+        waypoints,
+        color,
       };
       set((state) => ({ wires: [...state.wires, newWire], wireInProgress: null }));
     },
@@ -906,19 +924,6 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         updated.end = endPos
           ? { ...wire.end, x: endPos.x, y: endPos.y }
           : { ...wire.end, x: endX, y: endY };
-
-        // Auto-generate control points for wires with none
-        if (
-          updated.controlPoints.length === 0 &&
-          (updated.start.x !== 0 || updated.start.y !== 0) &&
-          (updated.end.x !== 0 || updated.end.y !== 0)
-        ) {
-          const midX = updated.start.x + (updated.end.x - updated.start.x) / 2;
-          updated.controlPoints = [
-            { id: `cp-${wire.id}-0`, x: midX, y: updated.start.y },
-            { id: `cp-${wire.id}-1`, x: midX, y: updated.end.y },
-          ];
-        }
 
         return updated;
       });
