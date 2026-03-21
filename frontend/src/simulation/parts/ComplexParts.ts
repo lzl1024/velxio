@@ -64,24 +64,16 @@ PartSimulationRegistry.register('rgb-led', {
 PartSimulationRegistry.register('potentiometer', {
     attachEvents: (element, simulator, getArduinoPinHelper) => {
         const pin = getArduinoPinHelper('SIG');
-        console.log(`[Potentiometer] attachEvents called, SIG pin resolved to: ${pin}`);
-        if (pin === null) {
-            console.warn('[Potentiometer] No SIG pin found — skipping ADC attachment');
-            return () => { };
-        }
+        if (pin === null) return () => { };
 
         // Determine reference voltage based on board type
         const isRP2040 = simulator instanceof RP2040Simulator;
         const refVoltage = isRP2040 ? 3.3 : 5.0;
-        console.log(`[Potentiometer] Board type: ${isRP2040 ? 'RP2040' : 'AVR'}, refV: ${refVoltage}`);
 
         const onInput = () => {
             const raw = parseInt((element as any).value || '0', 10);
             const volts = (raw / 1023.0) * refVoltage;
-            console.log(`[Potentiometer] pin=${pin}, raw=${raw}, volts=${volts.toFixed(3)}`);
-            if (!setAdcVoltage(simulator, pin, volts)) {
-                console.warn(`[Potentiometer] ADC not available for pin ${pin}`);
-            }
+            setAdcVoltage(simulator, pin, volts);
         };
 
         // Fire once on attach to set initial value
@@ -279,9 +271,7 @@ PartSimulationRegistry.register('servo', {
         // directly, which fires gpio.addListener → onPinChangeWithTime with the
         // accurate simulation time from SimulationClock.nanosCounter.
         if (avrSimulator instanceof RP2040Simulator && pinSIG !== null) {
-            console.log(`[Servo RP2040] attached, pinSIG=${pinSIG}`);
             let riseTimeMs = -1;
-            let logCount = 0;
 
             // Self-calibrating pulse range: the PIO clock divider may not match
             // exactly, producing pulses offset from the standard 544-2400µs range.
@@ -292,10 +282,6 @@ PartSimulationRegistry.register('servo', {
 
             avrSimulator.onPinChangeWithTime = (pin, state, timeMs) => {
                 if (pin !== pinSIG) return;
-                if (logCount < 10) {
-                    logCount++;
-                    console.log(`[Servo RP2040] pin=${pin} state=${state} timeMs=${timeMs.toFixed(3)}`);
-                }
                 if (state) {
                     riseTimeMs = timeMs;
                 } else if (riseTimeMs >= 0) {
@@ -304,10 +290,6 @@ PartSimulationRegistry.register('servo', {
 
                     // Reject noise: only consider pulses in a reasonable servo range
                     if (pulseUs < 100 || pulseUs > 25000) return;
-
-                    if (logCount <= 12) {
-                        console.log(`[Servo RP2040] pulseUs=${pulseUs.toFixed(1)} observedMin=${observedMin.toFixed(1)}`);
-                    }
 
                     // Update calibration baseline
                     if (pulseUs < observedMin) observedMin = pulseUs;
@@ -672,7 +654,6 @@ function createLcdSimulation(cols: number, rows: number) {
             }
 
             refreshDisplay();
-            console.log(`[LCD] ${cols}x${rows} simulation initialized`);
 
             return () => {
                 unsubscribers.forEach(u => u());
@@ -705,12 +686,7 @@ const ili9341Simulation = {
         const pinManager = (avrSimulator as any).pinManager;
         const spi = (avrSimulator as any).spi;
 
-        console.log('[ILI9341] attachEvents called. spi=', !!spi, 'pinManager=', !!pinManager, 'cpu=', !!(avrSimulator as any).cpu);
-
-        if (!pinManager || !spi) {
-            console.warn('[ILI9341] pinManager or SPI peripheral not available');
-            return () => {};
-        }
+        if (!pinManager || !spi) return () => {};
 
         // ── Canvas setup ──────────────────────────────────────────────────
         const SCREEN_W = 240;
@@ -743,7 +719,6 @@ const ili9341Simulation = {
         let pendingFlush = false;
         let rafId: number | null = null;
 
-        let flushCount = 0;
         const scheduleFlush = () => {
             if (rafId !== null) return;
             rafId = requestAnimationFrame(() => {
@@ -751,10 +726,6 @@ const ili9341Simulation = {
                 if (pendingFlush && ctx && imageData) {
                     ctx.putImageData(imageData, 0, 0);
                     pendingFlush = false;
-                    flushCount++;
-                    if (flushCount === 1) console.log('[ILI9341] First canvas flush complete');
-                } else if (pendingFlush) {
-                    console.warn('[ILI9341] Flush skipped: ctx=', !!ctx, 'imageData=', !!imageData);
                 }
             });
         };
@@ -807,7 +778,6 @@ const ili9341Simulation = {
         };
 
         // ── Command / data processing ─────────────────────────────────────
-        let ramwrPixelCount = 0;
         const processCommand = (cmd: number) => {
             currentCmd = cmd;
             dataBytes   = [];
@@ -815,15 +785,11 @@ const ili9341Simulation = {
             pixelByteCount = 0;
 
             if (cmd === 0x01) { // SWRESET – clear framebuffer
-                console.log('[ILI9341] SWRESET received, ctx=', !!ctx);
                 colStart = 0; colEnd = SCREEN_W - 1;
                 rowStart = 0; rowEnd = SCREEN_H - 1;
                 curX = 0;     curY  = 0;
                 imageData = null;
                 if (ctx) ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
-            } else if (cmd === 0x2C) { // RAMWR
-                ramwrPixelCount = 0;
-                console.log('[ILI9341] RAMWR received, ctx=', !!ctx, 'col=', colStart, '-', colEnd, 'row=', rowStart, '-', rowEnd);
             }
         };
 
@@ -837,10 +803,6 @@ const ili9341Simulation = {
                     writePixel(pixelHiByte, value);
                     scheduleFlush();
                     pixelByteCount = 0;
-                    ramwrPixelCount++;
-                    if (ramwrPixelCount === 1) {
-                        console.log('[ILI9341] First pixel written: rgb565=', ((pixelHiByte << 8) | value).toString(16));
-                    }
                 }
                 return;
             }
@@ -862,12 +824,7 @@ const ili9341Simulation = {
         // ── Intercept SPI ─────────────────────────────────────────────────
         const prevOnByte = spi.onByte.bind(spi);
 
-        let spiByteCount = 0;
         spi.onByte = (value: number) => {
-            spiByteCount++;
-            if (spiByteCount === 1) {
-                console.log('[ILI9341] First SPI byte! value=0x' + value.toString(16) + ' dcState=' + dcState);
-            }
             if (!dcState) {
                 processCommand(value);
             } else {
@@ -875,9 +832,6 @@ const ili9341Simulation = {
             }
             spi.completeTransfer(0xFF); // Unblock CPU immediately
         };
-
-        // Verify the override was applied (same object ref check)
-        console.log(`[ILI9341] SPI simulation ready. DC→pin${pinDC}. spi.onByte overridden=${spi.onByte !== prevOnByte}`);
 
         // ── Cleanup ───────────────────────────────────────────────────────
         return () => {

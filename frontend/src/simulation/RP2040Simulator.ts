@@ -272,7 +272,6 @@ export class RP2040Simulator {
     this.running = true;
     console.log('[RP2040] Starting simulation at 125 MHz...');
 
-    let frameCount = 0;
     const execute = () => {
       if (!this.running || !this.rp2040) return;
 
@@ -333,37 +332,6 @@ export class RP2040Simulator {
           }
         }
 
-        frameCount++;
-        if (frameCount % 60 === 0) {
-          console.log(`[RP2040] Frame ${frameCount}, PC: 0x${core.PC.toString(16)}`);
-          // PIO diagnostic: check GPIO 15 state and PIO1 status (servo uses PIO1)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rp = this.rp2040 as any;
-          if (rp && frameCount <= 300) {
-            const gpio15 = rp.gpio[15];
-            const pio1 = rp.pio[1];
-            const funcSel = gpio15 ? (gpio15.ctrl & 0x1f) : -1;
-            const pio1Stopped = pio1 ? pio1.stopped : true;
-            const pio1PinVal = pio1 ? ((pio1.pinValues >> 15) & 1) : -1;
-            const pio1PinDir = pio1 ? ((pio1.pinDirections >> 15) & 1) : -1;
-            // Find clockDivInt for first enabled machine in PIO1
-            let pio1ClkDiv = 'N/A';
-            if (pio1?.machines) {
-              for (const m of pio1.machines) {
-                if (m.enabled) {
-                  pio1ClkDiv = `${m.clockDivInt}.${m.clockDivFrac || 0}`;
-                  break;
-                }
-              }
-            }
-            console.log(
-              `[RP2040 PIO diag] pioDiv=${pioDiv}` +
-              ` gpio15.funcSel=${funcSel} (7=PIO1)` +
-              ` pio1.stopped=${pio1Stopped} pinVal[15]=${pio1PinVal} pinDir[15]=${pio1PinDir}` +
-              ` pio1.clkDiv=${pio1ClkDiv}`
-            );
-          }
-        }
       } catch (error) {
         console.error('[RP2040] Simulation error:', error);
         this.stop();
