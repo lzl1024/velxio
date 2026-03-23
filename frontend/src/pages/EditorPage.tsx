@@ -3,6 +3,7 @@
  */
 
 import React, { useRef, useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useSEO } from '../utils/useSEO';
 import { CodeEditor } from '../components/editor/CodeEditor';
 import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { FileTabs } from '../components/editor/FileTabs';
@@ -45,6 +46,13 @@ const resizeHandleStyle: React.CSSProperties = {
 };
 
 export const EditorPage: React.FC = () => {
+  useSEO({
+    title: 'Arduino Simulator Online Editor — Velxio',
+    description:
+      'Write, compile and simulate Arduino code directly in your browser. Real AVR8 emulation at 16 MHz with 48+ interactive components. Free and open-source.',
+    url: 'https://velxio.dev/editor',
+  });
+
   const [editorWidthPct, setEditorWidthPct] = useState(45);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);

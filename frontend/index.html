@@ -240,6 +240,10 @@
         <nav style="margin-top:.75rem;">
           <a href="/editor" style="color:#58a6ff;margin-right:1.5rem;">Editor</a>
           <a href="/examples" style="color:#58a6ff;margin-right:1.5rem;">Examples</a>
+          <a href="/arduino-simulator" style="color:#58a6ff;margin-right:1.5rem;">Arduino Simulator</a>
+          <a href="/arduino-emulator" style="color:#58a6ff;margin-right:1.5rem;">Arduino Emulator</a>
+          <a href="/atmega328p-simulator" style="color:#58a6ff;margin-right:1.5rem;">ATmega328P Simulator</a>
+          <a href="/arduino-mega-simulator" style="color:#58a6ff;margin-right:1.5rem;">Arduino Mega Simulator</a>
           <a href="https://github.com/davidmonterocrespo24/velxio" style="color:#58a6ff;margin-right:1.5rem;">GitHub</a>
           <a href="https://discord.gg/rCScB9cG" style="color:#58a6ff;">Discord</a>
           <a href="/docs/intro" style="color:#58a6ff;margin-right:1.5rem;">Documentation</a>
@@ -297,8 +301,58 @@
           <dt>Is Velxio a Wokwi alternative?</dt>
           <dd>Yes. Velxio is a free, self-hosted alternative to Wokwi. It uses the same avr8js and wokwi-elements open-source libraries but runs on your own machine.</dd>
           <dt>What boards are supported?</dt>
-          <dd>Arduino Uno (ATmega328p / AVR8) and Raspberry Pi Pico (RP2040). More boards are planned.</dd>
+          <dd>Arduino Uno (ATmega328p / AVR8), Arduino Nano, Arduino Mega 2560, Raspberry Pi Pico (RP2040), ESP32-C3 (RISC-V), and more. 17 boards in total.</dd>
         </dl>
+
+        <!-- SEO landing pages — keyword content for crawlers -->
+        <section>
+          <h2>Free Online Arduino Simulator</h2>
+          <p>Velxio is a free online Arduino simulator with real AVR8 emulation at 16 MHz. Simulate Arduino code with 48+ interactive electronic components directly in your browser — no install, no account required. <a href="/arduino-simulator">Open Arduino Simulator →</a></p>
+          <ul>
+            <li>Arduino Uno (ATmega328P) simulation at 16 MHz</li>
+            <li>48+ visual components: LEDs, sensors, displays, servos</li>
+            <li>Serial Monitor with auto baud-rate detection</li>
+            <li>Multi-file sketch support (.ino, .h, .cpp)</li>
+            <li>Free and open-source (GNU AGPLv3)</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Arduino Emulator — Real AVR8 &amp; RP2040 Emulation</h2>
+          <p>Velxio is a cycle-accurate Arduino emulator built on avr8js and rp2040js. Every AVR opcode is faithfully emulated at 16 MHz — the same silicon behavior as real hardware. <a href="/arduino-emulator">Open Arduino Emulator →</a></p>
+          <ul>
+            <li>All 135 AVR8 instructions emulated</li>
+            <li>Hardware timers (Timer0/1/2) with PWM, CTC, and overflow interrupts</li>
+            <li>10-bit ADC, full USART0 (TX/RX), SPI, I2C</li>
+            <li>RP2040 dual-core ARM Cortex-M0+ via rp2040js</li>
+            <li>RISC-V RV32IMC (ESP32-C3) emulation in browser</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>ATmega328P Simulator</h2>
+          <p>Simulate ATmega328P firmware exactly as it runs on Arduino Uno and Nano. Full AVR8 emulation: PORTB, PORTC, PORTD, Timer0/1/2, ADC, USART0, and all interrupt vectors. <a href="/atmega328p-simulator">Open ATmega328P Simulator →</a></p>
+          <ul>
+            <li>ATmega328P: 32 KB flash, 2 KB SRAM, 16 MHz</li>
+            <li>GPIO: PORTB (pins 8–13), PORTC (A0–A5), PORTD (0–7)</li>
+            <li>Timer0 (8-bit), Timer1 (16-bit), Timer2 (8-bit) — all PWM modes</li>
+            <li>10-bit ADC, 6 analog channels (A0–A5)</li>
+            <li>USART0 with configurable baud rate</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Arduino Mega 2560 Simulator</h2>
+          <p>Simulate Arduino Mega 2560 (ATmega2560) code for free. 256 KB flash, 54 digital pins, 16 analog inputs, 4 hardware serial ports (Serial, Serial1, Serial2, Serial3), and 6 hardware timers. <a href="/arduino-mega-simulator">Open Mega 2560 Simulator →</a></p>
+          <ul>
+            <li>ATmega2560: 256 KB flash, 8 KB SRAM, 16 MHz</li>
+            <li>54 digital I/O pins (PORTA through PORTL)</li>
+            <li>16 analog input channels (A0–A15), 10-bit ADC</li>
+            <li>4 hardware USART channels: Serial0–3</li>
+            <li>6 hardware timers: Timer0–5 (including three 16-bit)</li>
+            <li>15 PWM output pins</li>
+          </ul>
+        </section>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
