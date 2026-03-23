@@ -68,7 +68,8 @@ PartSimulationRegistry.register('potentiometer', {
 
         // Determine reference voltage based on board type
         const isRP2040 = simulator instanceof RP2040Simulator;
-        const refVoltage = isRP2040 ? 3.3 : 5.0;
+        const isESP32 = typeof (simulator as any).setAdcVoltage === 'function';
+        const refVoltage = (isRP2040 || isESP32) ? 3.3 : 5.0;
 
         const onInput = () => {
             const raw = parseInt((element as any).value || '0', 10);
@@ -93,7 +94,8 @@ PartSimulationRegistry.register('slide-potentiometer', {
 
         const el = element as any;
         const isRP2040 = avrSimulator instanceof RP2040Simulator;
-        const refVoltage = isRP2040 ? 3.3 : 5.0;
+        const isESP32 = typeof (avrSimulator as any).setAdcVoltage === 'function';
+        const refVoltage = (isRP2040 || isESP32) ? 3.3 : 5.0;
 
         const onInput = () => {
             const min = el.min ?? 0;
@@ -328,8 +330,16 @@ PartSimulationRegistry.register('servo', {
                 && (avrSimulator as any).getCurrentCycles() >= 0;
 
             if (pinManager && !hasCpuCycles) {
+                // ESP32 Servo.h uses 50Hz PWM with pulse 544-2400µs
+                // dutyCycle here is 0.0-1.0 (fraction of PWM period = 20ms)
+                // 544µs = 2.72%, 2400µs = 12.0%
+                const MIN_DC = MIN_PULSE_US / 20000; // 0.0272
+                const MAX_DC = MAX_PULSE_US / 20000; // 0.12
                 const unsubscribe = pinManager.onPwmChange(pinSIG, (_pin, dutyCycle) => {
-                    const angle = Math.round(dutyCycle * 180);
+                    if (dutyCycle < 0.01 || dutyCycle > 0.20) return; // ignore out-of-range
+                    const angle = Math.round(
+                        ((dutyCycle - MIN_DC) / (MAX_DC - MIN_DC)) * 180
+                    );
                     el.angle = Math.max(0, Math.min(180, angle));
                 });
                 return () => { unsubscribe(); };

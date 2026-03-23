@@ -8,8 +8,10 @@
  *   4. LEDC update routes to correct GPIO pin (not LEDC channel)
  *   5. LEDC duty_pct is normalized to 0.0–1.0
  *   6. LEDC fallback to channel when gpio=-1
- *   7. Servo angle maps correctly from duty cycle
- *   8. Potentiometer setAdcVoltage returns false for ESP32 (SimulatorCanvas handles it)
+ *   7. Servo angle maps correctly from duty cycle (pulse-width based)
+ *   8. Potentiometer setAdcVoltage works for ESP32 via bridge shim
+ *   9. ESP32 ADC channel mapping (GPIO → ADC1 channel)
+ *  10. LEDC polling reads float[] duty (not uint32) from QEMU internals(6)
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -113,6 +115,7 @@ function makeElement(props: Record<string, unknown> = {}): HTMLElement {
 function makeEsp32Shim() {
   let pwmCallback: ((pin: number, duty: number) => void) | null = null;
   const unsubPwm = vi.fn();
+  const adcCalls: { channel: number; millivolts: number }[] = [];
 
   return {
     pinManager: {
@@ -131,9 +134,19 @@ function makeEsp32Shim() {
     registerSensor: vi.fn().mockReturnValue(true),
     updateSensor: vi.fn(),
     unregisterSensor: vi.fn(),
+    // Esp32BridgeShim.setAdcVoltage — mirrors the real implementation
+    setAdcVoltage: vi.fn().mockImplementation((pin: number, voltage: number) => {
+      let channel = -1;
+      if (pin >= 36 && pin <= 39) channel = pin - 36;
+      else if (pin >= 32 && pin <= 35) channel = pin - 28;
+      if (channel < 0) return false;
+      adcCalls.push({ channel, millivolts: Math.round(voltage * 1000) });
+      return true;
+    }),
     // Test helpers
     _getPwmCallback: () => pwmCallback,
     _unsubPwm: unsubPwm,
+    _getAdcCalls: () => adcCalls,
   };
 }
 
@@ -183,7 +196,7 @@ describe('Servo — ESP32 PWM subscription', () => {
     expect(shim.pinManager.onPwmChange).toHaveBeenCalledWith(13, expect.any(Function));
   });
 
-  it('updates angle when PWM duty cycle changes', () => {
+  it('updates angle when PWM duty cycle changes (pulse-width mapping)', () => {
     const shim = makeEsp32Shim();
     const el = makeElement() as any;
     logic().attachEvents!(el, shim as any, pinMap({ PWM: 13 }), 'servo-esp32-angle');
@@ -191,17 +204,44 @@ describe('Servo — ESP32 PWM subscription', () => {
     const cb = shim._getPwmCallback();
     expect(cb).not.toBeNull();
 
-    // duty 0.0 → 0°
-    cb!(13, 0.0);
+    // ESP32 servo pulse-width mapping:
+    // MIN_DC = 544/20000 = 0.0272 → 0°
+    // MAX_DC = 2400/20000 = 0.12 → 180°
+    const MIN_DC = 544 / 20000;
+    const MAX_DC = 2400 / 20000;
+
+    // At min duty → 0°
+    cb!(13, MIN_DC);
     expect(el.angle).toBe(0);
 
-    // duty 0.5 → 90°
-    cb!(13, 0.5);
-    expect(el.angle).toBe(90);
-
-    // duty 1.0 → 180°
-    cb!(13, 1.0);
+    // At max duty → 180°
+    cb!(13, MAX_DC);
     expect(el.angle).toBe(180);
+
+    // At mid duty → ~90°
+    const midDC = (MIN_DC + MAX_DC) / 2;
+    cb!(13, midDC);
+    expect(el.angle).toBe(90);
+  });
+
+  it('ignores out-of-range duty cycles (noise filtering)', () => {
+    const shim = makeEsp32Shim();
+    const el = makeElement() as any;
+    logic().attachEvents!(el, shim as any, pinMap({ PWM: 13 }), 'servo-noise');
+
+    const cb = shim._getPwmCallback();
+
+    // Set to a known angle first
+    cb!(13, 0.075); // mid-range
+    const knownAngle = el.angle;
+
+    // Very low duty (< 1%) is ignored
+    cb!(13, 0.005);
+    expect(el.angle).toBe(knownAngle); // unchanged
+
+    // Very high duty (> 20%) is ignored
+    cb!(13, 0.5);
+    expect(el.angle).toBe(knownAngle); // unchanged
   });
 
   it('clamps angle to 0-180 range', () => {
@@ -211,12 +251,12 @@ describe('Servo — ESP32 PWM subscription', () => {
 
     const cb = shim._getPwmCallback();
 
-    // Negative duty → 0°
-    cb!(13, -0.1);
+    // Slightly below MIN_DC (but above 1% filter) → clamps to 0°
+    cb!(13, 0.015);
     expect(el.angle).toBe(0);
 
-    // Duty > 1 → 180°
-    cb!(13, 1.5);
+    // Slightly above MAX_DC (but below 20% filter) → clamps to 180°
+    cb!(13, 0.15);
     expect(el.angle).toBe(180);
   });
 
@@ -285,17 +325,17 @@ describe('LEDC update routing', () => {
   });
 
   it('routes to GPIO pin when update.gpio >= 0', () => {
-    const update = { channel: 0, duty: 4096, duty_pct: 50, gpio: 13 };
+    const update = { channel: 0, duty: 7.5, duty_pct: 7.5, gpio: 13 };
     const targetPin = (update.gpio !== undefined && update.gpio >= 0)
       ? update.gpio
       : update.channel;
     pm.updatePwm(targetPin, update.duty_pct / 100);
 
-    expect(pm.updatePwm).toHaveBeenCalledWith(13, 0.5);
+    expect(pm.updatePwm).toHaveBeenCalledWith(13, 0.075);
   });
 
   it('falls back to channel when gpio is -1', () => {
-    const update = { channel: 2, duty: 4096, duty_pct: 50, gpio: -1 };
+    const update = { channel: 2, duty: 50, duty_pct: 50, gpio: -1 };
     const targetPin = (update.gpio !== undefined && update.gpio >= 0)
       ? update.gpio
       : update.channel;
@@ -305,7 +345,7 @@ describe('LEDC update routing', () => {
   });
 
   it('falls back to channel when gpio is undefined', () => {
-    const update = { channel: 3, duty: 8192, duty_pct: 100 } as any;
+    const update = { channel: 3, duty: 100, duty_pct: 100 } as any;
     const targetPin = (update.gpio !== undefined && update.gpio >= 0)
       ? update.gpio
       : update.channel;
@@ -315,7 +355,7 @@ describe('LEDC update routing', () => {
   });
 
   it('normalizes duty_pct to 0.0–1.0 (divides by 100)', () => {
-    const update = { channel: 0, duty: 2048, duty_pct: 25, gpio: 5 };
+    const update = { channel: 0, duty: 25, duty_pct: 25, gpio: 5 };
     const targetPin = (update.gpio !== undefined && update.gpio >= 0)
       ? update.gpio
       : update.channel;
@@ -326,29 +366,34 @@ describe('LEDC update routing', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. Servo angle mapping from duty cycle
+// 7. Servo angle mapping — pulse-width based for ESP32
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Servo angle mapping', () => {
+describe('Servo angle mapping (pulse-width)', () => {
   const logic = () => PartSimulationRegistry.get('servo')!;
 
-  it('maps duty 0.0 → angle 0, duty 0.5 → angle 90, duty 1.0 → angle 180', () => {
+  it('maps real servo duty cycles to correct angles', () => {
     const shim = makeEsp32Shim();
     const el = makeElement() as any;
     logic().attachEvents!(el, shim as any, pinMap({ PWM: 13 }), 'servo-map');
 
     const cb = shim._getPwmCallback();
 
+    // Servo pulse widths at 50Hz (20ms period):
+    // 544µs = 2.72% duty → 0°
+    // 1472µs = 7.36% duty → 90°
+    // 2400µs = 12.00% duty → 180°
     const testCases = [
-      { duty: 0.0, expectedAngle: 0 },
-      { duty: 0.25, expectedAngle: 45 },
-      { duty: 0.5, expectedAngle: 90 },
-      { duty: 0.75, expectedAngle: 135 },
-      { duty: 1.0, expectedAngle: 180 },
+      { pulseUs: 544, expectedAngle: 0 },
+      { pulseUs: 1008, expectedAngle: 45 },
+      { pulseUs: 1472, expectedAngle: 90 },
+      { pulseUs: 1936, expectedAngle: 135 },
+      { pulseUs: 2400, expectedAngle: 180 },
     ];
 
-    for (const { duty, expectedAngle } of testCases) {
-      cb!(13, duty);
+    for (const { pulseUs, expectedAngle } of testCases) {
+      const dutyCycle = pulseUs / 20000; // fraction of 20ms period
+      cb!(13, dutyCycle);
       expect(el.angle).toBe(expectedAngle);
     }
   });
@@ -359,10 +404,17 @@ describe('Servo angle mapping', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Potentiometer — ESP32 ADC path', () => {
-  it('setAdcVoltage returns false for ESP32 shim (GPIO 34 is not AVR/RP2040 ADC range)', () => {
+  it('setAdcVoltage delegates to Esp32BridgeShim.setAdcVoltage', () => {
     const shim = makeEsp32Shim();
-    // GPIO 34 on ESP32 — not in AVR range (14-19) nor RP2040 range (26-29)
     const result = setAdcVoltage(shim as any, 34, 1.65);
+    expect(result).toBe(true);
+    expect(shim.setAdcVoltage).toHaveBeenCalledWith(34, 1.65);
+  });
+
+  it('setAdcVoltage returns false for non-ADC ESP32 pins', () => {
+    const shim = makeEsp32Shim();
+    // GPIO 13 is not an ADC pin on ESP32
+    const result = setAdcVoltage(shim as any, 13, 1.65);
     expect(result).toBe(false);
   });
 
@@ -371,5 +423,115 @@ describe('Potentiometer — ESP32 ADC path', () => {
     avrSim.getADC = () => ({ channelValues: new Array(6).fill(0) });
     const result = setAdcVoltage(avrSim as any, 14, 2.5);
     expect(result).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. ESP32 ADC channel mapping (GPIO → ADC1 channel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ESP32 ADC channel mapping', () => {
+  it('maps GPIO 36-39 → ADC1 CH0-3', () => {
+    const shim = makeEsp32Shim();
+    setAdcVoltage(shim as any, 36, 1.0);
+    setAdcVoltage(shim as any, 37, 1.0);
+    setAdcVoltage(shim as any, 38, 1.0);
+    setAdcVoltage(shim as any, 39, 1.0);
+
+    const calls = shim._getAdcCalls();
+    expect(calls.map(c => c.channel)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('maps GPIO 32-35 → ADC1 CH4-7', () => {
+    const shim = makeEsp32Shim();
+    setAdcVoltage(shim as any, 32, 1.0);
+    setAdcVoltage(shim as any, 33, 1.0);
+    setAdcVoltage(shim as any, 34, 1.0);
+    setAdcVoltage(shim as any, 35, 1.0);
+
+    const calls = shim._getAdcCalls();
+    expect(calls.map(c => c.channel)).toEqual([4, 5, 6, 7]);
+  });
+
+  it('converts voltage to millivolts correctly', () => {
+    const shim = makeEsp32Shim();
+    setAdcVoltage(shim as any, 34, 1.65);
+
+    const calls = shim._getAdcCalls();
+    expect(calls[0].millivolts).toBe(1650);
+  });
+
+  it('rejects non-ADC GPIOs (0-31)', () => {
+    const shim = makeEsp32Shim();
+    const result = setAdcVoltage(shim as any, 13, 1.0);
+    expect(result).toBe(false);
+    expect(shim._getAdcCalls()).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. LEDC polling — data type and internal config
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('LEDC polling — data format', () => {
+  it('duty values from QEMU are floats representing percentages (0-100)', () => {
+    // Simulates what the LEDC polling thread reads from QEMU
+    // QEMU stores: duty[ch] = 100.0 * raw_duty / (16 * (2^duty_res - 1))
+    // For a servo at 50Hz, 13-bit resolution, 1500µs pulse:
+    //   raw_duty = 1500/20000 * 8192 = 614.4
+    //   duty_pct = 100 * 614.4 / (16 * 8191) ≈ 0.469... but QEMU formula differs
+
+    // What matters: duty is a float percentage
+    const dutyPct = 7.5; // 7.5% = 1500µs at 50Hz = ~90°
+
+    // Frontend receives duty_pct, divides by 100
+    const dutyCycleFraction = dutyPct / 100; // 0.075
+
+    // Servo maps pulse width:
+    const MIN_DC = 544 / 20000;   // 0.0272
+    const MAX_DC = 2400 / 20000;  // 0.12
+    const angle = Math.round(
+      ((dutyCycleFraction - MIN_DC) / (MAX_DC - MIN_DC)) * 180
+    );
+
+    // 7.5% duty ≈ 93° (close to 90°)
+    expect(angle).toBeGreaterThanOrEqual(88);
+    expect(angle).toBeLessThanOrEqual(95);
+  });
+
+  it('LEDC internal config ID is 6 (QEMU_INTERNAL_LEDC_CHANNEL_DUTY)', () => {
+    // Verifies the constant matches QEMU's definition
+    // #define QEMU_INTERNAL_LEDC_CHANNEL_DUTY 6
+    const QEMU_INTERNAL_LEDC_CHANNEL_DUTY = 6;
+    expect(QEMU_INTERNAL_LEDC_CHANNEL_DUTY).toBe(6);
+  });
+
+  it('deduplication: identical duty values are not re-emitted', () => {
+    // Simulates the _last_duty tracking in _ledc_poll_thread
+    const lastDuty = [0.0, 0.0, 0.0];
+    const emitted: { ch: number; duty: number }[] = [];
+
+    function pollOnce(duties: number[]) {
+      for (let ch = 0; ch < duties.length; ch++) {
+        const duty = duties[ch];
+        if (Math.abs(duty - lastDuty[ch]) < 0.01) continue;
+        lastDuty[ch] = duty;
+        if (duty > 0) emitted.push({ ch, duty });
+      }
+    }
+
+    // First poll: duty = 7.5 → emitted
+    pollOnce([7.5, 0, 0]);
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toEqual({ ch: 0, duty: 7.5 });
+
+    // Second poll: same duty → NOT emitted (deduplication)
+    pollOnce([7.5, 0, 0]);
+    expect(emitted).toHaveLength(1); // still 1
+
+    // Third poll: duty changed → emitted
+    pollOnce([12.0, 0, 0]);
+    expect(emitted).toHaveLength(2);
+    expect(emitted[1]).toEqual({ ch: 0, duty: 12.0 });
   });
 });

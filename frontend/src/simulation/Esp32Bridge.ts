@@ -148,6 +148,7 @@ export class Esp32Bridge {
           break;
         }
         case 'ledc_update': {
+          console.log(`[Esp32Bridge:${this.boardId}] ledc_update ch=${msg.data.channel} duty=${msg.data.duty_pct}% gpio=${msg.data.gpio}`);
           this.onLedcUpdate?.(msg.data as unknown as LedcUpdate);
           break;
         }

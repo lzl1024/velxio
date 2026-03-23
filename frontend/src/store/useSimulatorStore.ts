@@ -73,6 +73,21 @@ class Esp32BridgeShim {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getADC(): any { return null; }
+
+  /**
+   * Set ADC value for an ESP32 GPIO pin.
+   * ESP32 ADC1: GPIO 36-39 → CH0-3, GPIO 32-35 → CH4-7
+   * Returns true if the pin is a valid ADC pin.
+   */
+  setAdcVoltage(pin: number, voltage: number): boolean {
+    let channel = -1;
+    if (pin >= 36 && pin <= 39) channel = pin - 36;       // GPIO 36→CH0, 37→CH1, 38→CH2, 39→CH3
+    else if (pin >= 32 && pin <= 35) channel = pin - 28;   // GPIO 32→CH4, 33→CH5, 34→CH6, 35→CH7
+    if (channel < 0) return false;
+    const millivolts = Math.round(voltage * 1000);
+    this.bridge.setAdc(channel, millivolts);
+    return true;
+  }
   getMCU(): null { return null; }
   start(): void { /* managed by bridge */ }
   stop(): void { /* managed by bridge */ }

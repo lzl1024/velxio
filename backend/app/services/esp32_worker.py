@@ -276,6 +276,15 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
 
         Each entry means: after sync_count digitalRead() calls in this phase,
         drive the pin to pin_value and advance to the next phase.
+
+        The Adafruit DHT library decodes bits by comparing
+        highCycles > lowCycles — only RATIOS matter, not absolute values.
+        We use the raw µs values as sync counts to preserve correct ratios.
+
+        After the last data bit (40th bit HIGH→LOW), the firmware's
+        expectPulse() loop ends — no more syncs will arrive.  So we do
+        NOT add a trailing phase; cleanup happens immediately after the
+        last phase transition fires.
         """
         phases: list[tuple[int, int]] = []
         # Preamble: LOW 80 syncs → drive HIGH
@@ -288,8 +297,6 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
                 bit = (byte_val >> b) & 1
                 phases.append((50, 1))              # LOW phase → drive HIGH
                 phases.append((70 if bit else 26, 0))  # HIGH phase → drive LOW
-        # Final: LOW 50 syncs → release HIGH
-        phases.append((50, 1))
         return phases
 
     def _dht22_sync_step() -> None:
@@ -308,19 +315,8 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
         phases = state['phases']
 
         if phase_idx >= len(phases):
-            # Response complete — clean up
-            gpio_pin = state['gpio']
-            total = state['total_syncs']
-            with _sensors_lock:
-                sensor = _sensors.get(gpio_pin)
-                if sensor:
-                    sensor['responding'] = False
-            _dht22_sync[0] = None
-            _log(f'DHT22 sync respond done gpio={gpio_pin} '
-                 f'total_syncs={total} phases={len(phases)}')
-            _emit({'type': 'system', 'event': 'dht22_diag',
-                   'gpio': gpio_pin, 'status': 'ok',
-                   'total_syncs': total})
+            # All phases done — clean up immediately
+            _dht22_sync_cleanup(state)
             return
 
         target, pin_value = phases[phase_idx]
@@ -329,6 +325,26 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
             state['total_syncs'] += state['count']
             state['count'] = 0
             state['phase_idx'] += 1
+            # If that was the last phase, clean up now — the firmware's
+            # expectPulse() loop ends after the last data bit, so no more
+            # syncs will arrive to trigger cleanup later.
+            if state['phase_idx'] >= len(phases):
+                _dht22_sync_cleanup(state)
+
+    def _dht22_sync_cleanup(state: dict) -> None:
+        """Clean up after DHT22 sync response completes."""
+        gpio_pin = state['gpio']
+        total = state['total_syncs']
+        with _sensors_lock:
+            sensor = _sensors.get(gpio_pin)
+            if sensor:
+                sensor['responding'] = False
+        _dht22_sync[0] = None
+        _log(f'DHT22 sync respond done gpio={gpio_pin} '
+             f'total_syncs={total} phases={len(state["phases"])}')
+        _emit({'type': 'system', 'event': 'dht22_diag',
+               'gpio': gpio_pin, 'status': 'ok',
+               'total_syncs': total})
 
     def _hcsr04_respond(trig_pin: int, echo_pin: int, distance_cm: float) -> None:
         """Thread function: inject the HC-SR04 echo pulse via qemu_picsimlab_set_pin."""
@@ -399,10 +415,11 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
         # thread, perfectly synchronized with the firmware's expectPulse()
         # loop iterations.
         if slot == -1:
-            if direction == -1 and _dht22_sync[0] is not None:
-                # GPIO_IN read — advance DHT22 sync response
-                _dht22_sync_step()
-                return
+            if direction == -1:
+                # GPIO_IN read sync — advance DHT22 response if active
+                if _dht22_sync[0] is not None:
+                    _dht22_sync_step()
+                return  # always return for GPIO_IN syncs (fast path)
             marker = direction & 0xF000
             if marker == 0x2000:  # GPIO_FUNCX_OUT_SEL_CFG change
                 gpio_pin = direction & 0xFF
@@ -411,6 +428,7 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
                 if 72 <= signal <= 87:
                     ledc_ch = signal - 72  # ch 0-15
                     _ledc_gpio_map[ledc_ch] = gpio_pin
+                    _log(f'LEDC map: ch{ledc_ch} → GPIO{gpio_pin} (signal={signal})')
             return
 
         # ── DHT22: track direction changes + trigger sync response ───────
@@ -429,9 +447,9 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
                         sensor['responding'] = True
 
                         # Build the response waveform phases
-                        payload = _dht22_build_payload(
-                            sensor.get('temperature', 25.0),
-                            sensor.get('humidity', 50.0))
+                        temp = sensor.get('temperature', 25.0)
+                        hum = sensor.get('humidity', 50.0)
+                        payload = _dht22_build_payload(temp, hum)
                         phases = _dht22_build_sync_phases(payload)
 
                         # Drive pin LOW synchronously — firmware sees LOW
@@ -448,6 +466,7 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
                             'total_syncs': 0,
                         }
                         _log(f'DHT22 sync armed gpio={gpio} '
+                             f'temp={temp} hum={hum} '
                              f'phases={len(phases)} payload={payload}')
         gpio = int(_PINMAP[slot]) if 1 <= slot <= _GPIO_COUNT else slot
         _emit({'type': 'gpio_dir', 'pin': gpio, 'dir': direction})
@@ -566,22 +585,42 @@ def main() -> None:  # noqa: C901  (complexity OK for inline worker)
 
     def _ledc_poll_thread() -> None:
         lib.qemu_picsimlab_get_internals.restype = ctypes.c_void_p
+        # Track last-emitted duty to avoid flooding identical updates
+        _last_duty = [0.0] * 16
+        _diag_count = [0]
+        _log('LEDC poll thread started')
         while not _stopped.wait(0.1):
             try:
-                ptr = lib.qemu_picsimlab_get_internals(0)
-                if ptr is None:
+                ptr = lib.qemu_picsimlab_get_internals(6)  # LEDC_CHANNEL_DUTY
+                _diag_count[0] += 1
+                # Log first 5 polls for diagnostics
+                if _diag_count[0] <= 5:
+                    _log(f'LEDC poll #{_diag_count[0]}: ptr={ptr} '
+                         f'(type={type(ptr).__name__}) gpio_map={dict(_ledc_gpio_map)}')
+                if ptr is None or ptr == 0:
+                    if _diag_count[0] <= 5:
+                        _log(f'LEDC poll: ptr is NULL/0, skipping')
                     continue
-                arr = (ctypes.c_uint32 * 16).from_address(ptr)
+                # duty[] is float[16] in QEMU (percentage 0-100)
+                arr = (ctypes.c_float * 16).from_address(ptr)
+                if _diag_count[0] <= 5:
+                    nonzero = {ch: round(float(arr[ch]), 2) for ch in range(16)
+                               if float(arr[ch]) != 0.0}
+                    _log(f'LEDC poll: nonzero duties={nonzero}')
                 for ch in range(16):
-                    duty = int(arr[ch])
-                    if duty > 0:
+                    duty_pct = float(arr[ch])
+                    if abs(duty_pct - _last_duty[ch]) < 0.01:
+                        continue
+                    _last_duty[ch] = duty_pct
+                    if duty_pct > 0:
                         gpio = _ledc_gpio_map.get(ch, -1)
                         _emit({'type': 'ledc_update', 'channel': ch,
-                               'duty': duty,
-                               'duty_pct': round(duty / 8192 * 100, 1),
+                               'duty': round(duty_pct, 2),
+                               'duty_pct': round(duty_pct, 2),
                                'gpio': gpio})
-            except Exception:
-                pass
+            except Exception as e:
+                import traceback
+                _log(f'LEDC poll error: {e}\n{traceback.format_exc()}')
 
     threading.Thread(target=_ledc_poll_thread, daemon=True, name='ledc-poll').start()
 
