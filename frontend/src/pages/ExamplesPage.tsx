@@ -16,6 +16,7 @@ import { useVfsStore } from '../store/useVfsStore';
 import { isBoardComponent } from '../utils/boardPinMapping';
 import { getInstalledLibraries, installLibrary } from '../services/libraryService';
 import type { ExampleProject } from '../data/examples';
+import { trackOpenExample } from '../utils/analytics';
 import type { BoardKind } from '../types/board';
 
 export const ExamplesPage: React.FC = () => {
@@ -37,6 +38,9 @@ export const ExamplesPage: React.FC = () => {
       const missing = libs.filter((l) => !installedNames.has(l.toLowerCase()));
       if (missing.length === 0) return;
 
+  const handleLoadExample = (example: ExampleProject) => {
+    console.log('Loading example:', example.title);
+    trackOpenExample(example.title);
       setInstalling({ total: missing.length, done: 0, current: missing[0] });
       for (let i = 0; i < missing.length; i++) {
         setInstalling({ total: missing.length, done: i, current: missing[i] });

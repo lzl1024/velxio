@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { trackVisitGitHub } from '../../utils/analytics';
 
 const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
 const DISCORD_URL = 'https://discord.gg/rCScB9cG';

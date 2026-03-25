@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { trackVisitGitHub } from '../utils/analytics';
 import { AppHeader } from '../components/layout/AppHeader';
 import { useSEO } from '../utils/useSEO';
 import { getSeoMeta } from '../seoRoutes';
@@ -499,13 +500,13 @@ export const LandingPage: React.FC = () => {
               <IcoZap />
               Try Simulator Free →
             </Link>
-            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="cta-secondary">
+            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" onClick={trackVisitGitHub} className="cta-secondary">
               <IcoGitHub />
               View on GitHub
             </a>
           </div>
           <p className="hero-trust-line">No signup required · Runs 100% in your browser · Free &amp; open-source</p>
-          
+
         </div>
         <div className="hero-right">
           <img src="/image.png" alt="Velxio simulator preview" className="hero-preview-img" />
@@ -734,7 +735,7 @@ export const LandingPage: React.FC = () => {
           <span>Velxio</span>
         </div>
         <div className="footer-links">
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" onClick={trackVisitGitHub}>GitHub</a>
           <Link to="/docs">Docs</Link>
           <Link to="/examples">Examples</Link>
           <Link to="/editor">Editor</Link>
