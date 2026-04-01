@@ -69,6 +69,20 @@ cd frontend
 npm run lint
 ```
 
+**Run a single test file:**
+```bash
+cd frontend
+npm test -- AVRSimulator
+```
+
+**Generate SEO/metadata files:**
+```bash
+cd frontend
+npm run generate:metadata   # regenerates sitemap + og-image
+npm run generate:sitemap
+npm run generate:og-image
+```
+
 **Access:**
 - App: http://localhost:5173
 
@@ -175,6 +189,8 @@ Main stores:
 - `useSimulatorStore`: Simulation state, components, wires, compiled hex, serialMonitorOpen
 - `useAuthStore`: Auth state (persisted in localStorage)
 - `useProjectStore`: Current project tracking
+- `useVfsStore`: Virtual filesystem for in-browser file I/O (used by ESP32/RP2040 emulation)
+- `useOscilloscopeStore`: Oscilloscope probe state and waveform data
 
 **6. Component-Pin Mapping**
 
@@ -204,7 +220,13 @@ Wire positions auto-update when components move via `updateWirePositions()`.
 - [backend/app/api/routes/compile.py](backend/app/api/routes/compile.py) - Compilation endpoints (multi-file)
 - [backend/app/api/routes/auth.py](backend/app/api/routes/auth.py) - /api/auth/* endpoints
 - [backend/app/api/routes/projects.py](backend/app/api/routes/projects.py) - /api/projects/* + /api/user/*
+- [backend/app/api/routes/libraries.py](backend/app/api/routes/libraries.py) - /api/libraries/* (install/search arduino libraries)
+- [backend/app/api/routes/simulation.py](backend/app/api/routes/simulation.py) - simulation-related endpoints
+- [backend/app/api/routes/admin.py](backend/app/api/routes/admin.py) - admin endpoints
 - [backend/app/services/arduino_cli.py](backend/app/services/arduino_cli.py) - arduino-cli wrapper
+- [backend/app/services/qemu_manager.py](backend/app/services/qemu_manager.py) - QEMU process management (Raspberry Pi emulation)
+- [backend/app/services/esp_qemu_manager.py](backend/app/services/esp_qemu_manager.py) - QEMU for ESP32 emulation
+- [backend/app/services/esp32_worker.py](backend/app/services/esp32_worker.py) - ESP32 compile/flash worker
 - [backend/app/core/config.py](backend/app/core/config.py) - Settings (SECRET_KEY, DATABASE_URL `velxio.db`, GOOGLE_*)
 - [backend/app/core/security.py](backend/app/core/security.py) - JWT, password hashing
 - [backend/app/core/dependencies.py](backend/app/core/dependencies.py) - get_current_user, require_auth
@@ -218,6 +240,13 @@ Wire positions auto-update when components move via `updateWirePositions()`.
 - [frontend/src/store/useSimulatorStore.ts](frontend/src/store/useSimulatorStore.ts) - Simulation state, components, wires
 - [frontend/src/store/useAuthStore.ts](frontend/src/store/useAuthStore.ts) - Auth state (localStorage)
 - [frontend/src/store/useProjectStore.ts](frontend/src/store/useProjectStore.ts) - Current project
+- [frontend/src/store/useVfsStore.ts](frontend/src/store/useVfsStore.ts) - Virtual filesystem for ESP32/RP2040
+- [frontend/src/store/useOscilloscopeStore.ts](frontend/src/store/useOscilloscopeStore.ts) - Oscilloscope probe data
+- [frontend/src/services/compilation.ts](frontend/src/services/compilation.ts) - compileCode() API client
+- [frontend/src/services/projectService.ts](frontend/src/services/projectService.ts) - Project CRUD API client
+- [frontend/src/services/authService.ts](frontend/src/services/authService.ts) - Auth API client
+- [frontend/src/services/libraryService.ts](frontend/src/services/libraryService.ts) - Library install/search API client
+- [frontend/src/services/ComponentRegistry.ts](frontend/src/services/ComponentRegistry.ts) - Maps component type strings to React elements
 
 ### Frontend - Editor UI
 - [frontend/src/components/editor/CodeEditor.tsx](frontend/src/components/editor/CodeEditor.tsx) - Monaco editor (key={activeFileId} for per-file undo history)
@@ -242,6 +271,11 @@ Wire positions auto-update when components move via `updateWirePositions()`.
 - [frontend/src/pages/RegisterPage.tsx](frontend/src/pages/RegisterPage.tsx)
 - [frontend/src/pages/UserProfilePage.tsx](frontend/src/pages/UserProfilePage.tsx) - Profile with project grid
 - [frontend/src/pages/ProjectPage.tsx](frontend/src/pages/ProjectPage.tsx) - Loads project into editor
+- [frontend/src/pages/AboutPage.tsx](frontend/src/pages/AboutPage.tsx) - About/press page with external links
+- [frontend/src/pages/Velxio2Page.tsx](frontend/src/pages/Velxio2Page.tsx) - Landing page variant
+- [frontend/src/pages/ArduinoSimulatorPage.tsx](frontend/src/pages/ArduinoSimulatorPage.tsx) - SEO landing for Arduino sim
+- [frontend/src/pages/Esp32SimulatorPage.tsx](frontend/src/pages/Esp32SimulatorPage.tsx) - SEO landing for ESP32 sim
+- [frontend/src/pages/RaspberryPiSimulatorPage.tsx](frontend/src/pages/RaspberryPiSimulatorPage.tsx) - SEO landing for RPi sim
 
 ### Frontend - SEO & Public Files
 - `frontend/index.html` — Full SEO meta tags, OG, Twitter Card, JSON-LD. **Domain is `https://velxio.dev`** — update if domain changes.
@@ -415,9 +449,22 @@ Enable verbose logging:
 - Functional wire connections (electrical signal routing)
 - Wire validation and error handling
 
+**Also implemented (beyond the list above):**
+- ESP32 emulation via QEMU backend (`esp_qemu_manager.py`)
+- Raspberry Pi 3 emulation via QEMU backend (`qemu_manager.py`)
+- Oscilloscope component with probe waveform display
+- Sensor control panel for simulated sensor input
+- Admin panel (`/admin` route)
+- About page and alternate landing page (Velxio2Page)
+- Google Analytics key event tracking
+
+**In Progress:**
+- Functional wire connections (electrical signal routing)
+- Wire validation and error handling
+
 **Planned:**
 - Undo/redo functionality
-- More boards (ESP32, Arduino Mega, Arduino Nano)
+- Arduino Mega, Arduino Nano board support
 - Export/Import projects as files
 
 ## Additional Resources

@@ -19,11 +19,11 @@ import { SerialMonitor } from '../components/simulator/SerialMonitor';
 import { Oscilloscope } from '../components/simulator/Oscilloscope';
 import { AppHeader } from '../components/layout/AppHeader';
 import { SaveProjectModal } from '../components/layout/SaveProjectModal';
-import { LoginPromptModal } from '../components/layout/LoginPromptModal';
+
 import { GitHubStarBanner } from '../components/layout/GitHubStarBanner';
 import { useSimulatorStore } from '../store/useSimulatorStore';
 import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
-import { useAuthStore } from '../store/useAuthStore';
+
 import type { CompilationLog } from '../utils/compilationLogger';
 import '../App.css';
 
@@ -68,7 +68,7 @@ export const EditorPage: React.FC = () => {
   const [compileLogs, setCompileLogs] = useState<CompilationLog[]>([]);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(BOTTOM_PANEL_DEFAULT);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
-  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
+
   const [showStarBanner, setShowStarBanner] = useState(false);
 
   // ── GitHub star prompt (show once: 2nd visit OR after 3 min) ──────────────
@@ -114,15 +114,9 @@ export const EditorPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches);
   // Default to 'code' on mobile — show the editor so users can write/view code
   const [mobileView, setMobileView] = useState<'code' | 'circuit'>('code');
-  const user = useAuthStore((s) => s.user);
-
   const handleSaveClick = useCallback(() => {
-    if (!user) {
-      setLoginPromptOpen(true);
-    } else {
-      setSaveModalOpen(true);
-    }
-  }, [user]);
+    setSaveModalOpen(true);
+  }, []);
 
   // Track mobile breakpoint
   useEffect(() => {
@@ -388,7 +382,6 @@ export const EditorPage: React.FC = () => {
       </div>
 
       {saveModalOpen && <SaveProjectModal onClose={() => setSaveModalOpen(false)} />}
-      {loginPromptOpen && <LoginPromptModal onClose={() => setLoginPromptOpen(false)} />}
       {showStarBanner && <GitHubStarBanner onClose={handleDismissStarBanner} />}
     </div>
   );

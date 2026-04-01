@@ -21,6 +21,7 @@ import { RaspberryPiPicoSimulatorPage } from './pages/RaspberryPiPicoSimulatorPa
 import { RaspberryPiSimulatorPage } from './pages/RaspberryPiSimulatorPage';
 import { Velxio2Page } from './pages/Velxio2Page';
 import { AboutPage } from './pages/AboutPage';
+import { LocalProjectsPage } from './pages/LocalProjectsPage';
 import { useAuthStore } from './store/useAuthStore';
 import './App.css';
 
@@ -36,6 +37,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/editor" element={<EditorPage />} />
+        <Route path="/projects" element={<LocalProjectsPage />} />
         <Route path="/examples" element={<ExamplesPage />} />
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/login" element={<LoginPage />} />

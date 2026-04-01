@@ -29,7 +29,7 @@ export const SaveProjectModal: React.FC<SaveProjectModalProps> = ({ onClose }) =
 
   useEffect(() => {
     if (isUpdate) {
-      setName(currentProject.slug); // will be overridden if we load proper name
+      setName(currentProject.slug);
       setIsPublic(currentProject.isPublic);
     }
   }, [isUpdate]);
