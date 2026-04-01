@@ -88,7 +88,7 @@ Velxio emula WiFi y Bluetooth (BLE) en el ESP32 usando el fork de QEMU de lcgamb
 │  │  Slirp (user-mode NAT)                                       │ │
 │  │    • Red: 192.168.4.0/24                                     │ │
 │  │    • ESP32 IP: 192.168.4.15 (static, matches slirp DHCP)      │ │
-│  │    • Gateway: 192.168.4.15                                    │ │
+│  │    • Gateway: 192.168.4.2                                     │ │
 │  │    • Internet: acceso completo vía NAT del host              │ │
 │  └──────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
