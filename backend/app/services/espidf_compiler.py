@@ -465,6 +465,7 @@ class ESPIDFCompiler:
             cmake_cmd = [
                 'cmake',
                 '-G', 'Ninja',
+                '-Wno-dev',
                 f'-DIDF_TARGET={idf_target}',
                 '-DCMAKE_BUILD_TYPE=Release',
                 f'-DSDKCONFIG_DEFAULTS={project_dir / "sdkconfig.defaults"}',
@@ -528,6 +529,18 @@ class ESPIDFCompiler:
 
             all_stdout = cmake_result.stdout + '\n' + ninja_result.stdout
             all_stderr = cmake_result.stderr + '\n' + ninja_result.stderr
+
+            # Filter out expected but ugly warnings from stderr (e.g. absent git, cmake deprecation)
+            filtered_stderr_lines = []
+            for line in all_stderr.splitlines():
+                if 'fatal: not a git repository' in line:
+                    continue
+                if 'CMake Deprecation Warning' in line:
+                    continue
+                if 'Compatibility with CMake' in line:
+                    continue
+                filtered_stderr_lines.append(line)
+            all_stderr = '\n'.join(filtered_stderr_lines)
 
             if ninja_result.returncode != 0:
                 logger.error(f'[espidf] ninja build failed:\n{ninja_result.stderr}')
