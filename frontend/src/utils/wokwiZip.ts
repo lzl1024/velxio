@@ -43,7 +43,7 @@ export interface VelxioComponent {
 }
 
 export interface ImportResult {
-  boardType: 'arduino-uno' | 'arduino-nano' | 'arduino-mega' | 'raspberry-pi-pico';
+  boardType: import('../types/board').BoardKind;
   boardPosition: { x: number; y: number };
   components: VelxioComponent[];
   wires: Wire[];
@@ -55,27 +55,60 @@ export interface ImportResult {
 // ── Board mappings ────────────────────────────────────────────────────────────
 
 // Wokwi board type → Velxio boardType
-const WOKWI_TYPE_TO_BOARD: Record<string, 'arduino-uno' | 'arduino-nano' | 'arduino-mega' | 'raspberry-pi-pico'> = {
-  'wokwi-arduino-uno': 'arduino-uno',
-  'wokwi-arduino-nano': 'arduino-nano',
-  'wokwi-arduino-mega': 'arduino-mega',
-  'wokwi-raspberry-pi-pico': 'raspberry-pi-pico',
+const WOKWI_TYPE_TO_BOARD: Record<string, import('../types/board').BoardKind> = {
+  'wokwi-arduino-uno':          'arduino-uno',
+  'wokwi-arduino-nano':         'arduino-nano',
+  'wokwi-arduino-mega':         'arduino-mega',
+  'wokwi-raspberry-pi-pico':    'raspberry-pi-pico',
+  'wokwi-pi-pico-w':            'pi-pico-w',
+  'wokwi-esp32-devkit-v1':      'esp32',
+  'wokwi-esp32-cam':            'esp32-cam',
+  'wokwi-esp32-s3-devkit':      'esp32-s3',
+  'wokwi-xiao-esp32-s3':        'xiao-esp32-s3',
+  'wokwi-arduino-nano-esp32':   'arduino-nano-esp32',
+  'wokwi-esp32-c3-devkit':      'esp32-c3',
+  'wokwi-xiao-esp32-c3':        'xiao-esp32-c3',
+  'wokwi-attiny85':             'attiny85',
 };
 
 // Velxio boardType → Wokwi type
 const BOARD_TO_WOKWI_TYPE: Record<string, string> = {
-  'arduino-uno': 'wokwi-arduino-uno',
-  'arduino-nano': 'wokwi-arduino-nano',
-  'arduino-mega': 'wokwi-arduino-mega',
-  'raspberry-pi-pico': 'wokwi-raspberry-pi-pico',
+  'arduino-uno':               'wokwi-arduino-uno',
+  'arduino-nano':              'wokwi-arduino-nano',
+  'arduino-mega':              'wokwi-arduino-mega',
+  'raspberry-pi-pico':         'wokwi-raspberry-pi-pico',
+  'pi-pico-w':                 'wokwi-pi-pico-w',
+  'esp32':                     'wokwi-esp32-devkit-v1',
+  'esp32-devkit-c-v4':         'wokwi-esp32-devkit-v1',
+  'esp32-cam':                 'wokwi-esp32-cam',
+  'wemos-lolin32-lite':        'wokwi-esp32-devkit-v1',
+  'esp32-s3':                  'wokwi-esp32-s3-devkit',
+  'xiao-esp32-s3':             'wokwi-xiao-esp32-s3',
+  'arduino-nano-esp32':        'wokwi-arduino-nano-esp32',
+  'esp32-c3':                  'wokwi-esp32-c3-devkit',
+  'xiao-esp32-c3':             'wokwi-xiao-esp32-c3',
+  'aitewinrobot-esp32c3-supermini': 'wokwi-esp32-c3-devkit',
+  'attiny85':                  'wokwi-attiny85',
 };
 
 // Velxio boardType → default Wokwi part id
 const BOARD_TO_WOKWI_ID: Record<string, string> = {
-  'arduino-uno': 'uno',
-  'arduino-nano': 'nano',
-  'arduino-mega': 'mega',
-  'raspberry-pi-pico': 'pico',
+  'arduino-uno':               'uno',
+  'arduino-nano':              'nano',
+  'arduino-mega':              'mega',
+  'raspberry-pi-pico':         'pico',
+  'pi-pico-w':                 'pico',
+  'esp32':                     'esp32',
+  'esp32-devkit-c-v4':         'esp32',
+  'esp32-cam':                 'esp32',
+  'wemos-lolin32-lite':        'esp32',
+  'esp32-s3':                  'esp32',
+  'xiao-esp32-s3':             'esp32',
+  'arduino-nano-esp32':        'esp32',
+  'esp32-c3':                  'esp32',
+  'xiao-esp32-c3':             'esp32',
+  'aitewinrobot-esp32c3-supermini': 'esp32',
+  'attiny85':                  'attiny',
 };
 
 // ── Pin name aliases ─────────────────────────────────────────────────────────
