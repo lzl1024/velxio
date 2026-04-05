@@ -659,9 +659,12 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           }
           esp32Bridge.setSensors(sensors);
 
-          // Auto-detect WiFi usage in sketch files
-          const editorFiles = useEditorStore.getState().files;
-          const hasWifi = editorFiles.some(f =>
+          // Auto-detect WiFi usage in this board's sketch files.
+          // Use the board's file group (not the legacy global files array).
+          const editorState = useEditorStore.getState();
+          const boardFiles = editorState.fileGroups[board.activeFileGroupId]
+            ?? editorState.files;
+          const hasWifi = boardFiles.some(f =>
             f.content.includes('#include <WiFi.h>') ||
             f.content.includes('#include <esp_wifi.h>') ||
             f.content.includes('#include "WiFi.h"') ||
