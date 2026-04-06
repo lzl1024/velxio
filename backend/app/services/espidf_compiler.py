@@ -607,11 +607,33 @@ class ESPIDFCompiler:
             all_stderr = '\n'.join(filtered_stderr_lines)
 
             if ninja_result.returncode != 0:
-                logger.error(f'[espidf] ninja build failed (stdout):\n{ninja_result.stdout[-4000:]}')
-                logger.error(f'[espidf] ninja build failed (stderr):\n{ninja_result.stderr[-2000:]}')
+                # Extract the actual compiler error: capture lines after the last FAILED: marker
+                # (ninja puts the compile command + compiler output right after FAILED:)
+                combined = ninja_result.stdout + '\n' + ninja_result.stderr
+                lines = combined.splitlines()
+
+                # Find index of last FAILED: line
+                last_failed_idx = -1
+                for i, line in enumerate(lines):
+                    if line.startswith('FAILED:'):
+                        last_failed_idx = i
+
+                if last_failed_idx >= 0:
+                    # Take up to 40 lines after the last FAILED: (compiler cmd + errors)
+                    error_context = lines[last_failed_idx:last_failed_idx + 40]
+                    error_summary = '\n'.join(error_context)
+                else:
+                    # Fallback: grab any error/fatal error lines
+                    error_lines = [
+                        l for l in lines
+                        if ': error:' in l or 'fatal error:' in l or 'Error:' in l
+                    ]
+                    error_summary = '\n'.join(error_lines[-20:])
+
+                logger.error(f'[espidf] ninja build failed:\n{error_summary or combined[-4000:]}')
                 return {
                     'success': False,
-                    'error': 'ESP-IDF build failed',
+                    'error': f'ESP-IDF build failed\n{error_summary}' if error_summary else 'ESP-IDF build failed',
                     'stdout': all_stdout,
                     'stderr': all_stderr,
                 }
